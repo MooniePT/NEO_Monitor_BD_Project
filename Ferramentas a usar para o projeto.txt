@@ -1,0 +1,10 @@
+https://dbdiagram.io/ -> Criar graficamente as tabelas e mostrar as suas relações.
+
+ERDplus-old.com -> Criar o Diagrama de relações
+
+https://runsql.com/r -> Testar o código SQL
+
+
+Testar:
+medaki3407@feralrex.com
+BC->09@UBI

@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: NEO Monitoring GUI",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}\\src\\gui_main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}\\env\\Scripts\\python.exe"
+        }
+    ]
+}
