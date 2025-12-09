@@ -62,7 +62,7 @@ def fetch_ranking_pha(conn, limite: int = 15):
     sql = f"""
     SELECT TOP ({int(limite)})
         id_asteroide,
-        nome_asteroide,
+        nome_completo,
         pdes,
         diametro_km,
         posicao_ranking
@@ -114,12 +114,12 @@ def fetch_ultimos_asteroides(conn):
         id_asteroide,
         nome_completo,
         pdes,
-        data_descoberta,
+        NULL as data_descoberta, -- Coluna nao existe na BD
         flag_neo,
         flag_pha,
         diametro_km
     FROM ASTEROIDE
-    ORDER BY data_descoberta DESC, id_asteroide DESC;
+    ORDER BY id_asteroide DESC;
     """
     return _run_query(conn, sql)
 

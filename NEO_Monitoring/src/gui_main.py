@@ -14,6 +14,9 @@ import json
 import os
 import random
 import webbrowser
+import threading
+import queue
+import time
 
 
 from PIL import Image, ImageTk
@@ -188,7 +191,7 @@ class App(tk.Tk):
         self.frames: dict[str, tk.Frame] = {}
 
         # Criar frames
-        for FrameClass in (LoginFrame, DbConfigFrame, MainMenuFrame, InsercaoESAFrame, UserConfigFrame):
+        for FrameClass in (LoginFrame, DbConfigFrame, MainMenuFrame, InsercaoESAFrame, UserConfigFrame, LoadingFrame):
             frame = FrameClass(parent=self, controller=self)
             self.frames[FrameClass.__name__] = frame
 
@@ -449,20 +452,17 @@ class App(tk.Tk):
                 )
 
                 if caminho:
-                    inseridos = importar_neo_csv(self.db_conn, caminho)
-                    messagebox.showinfo(
-                        "Importação concluída",
-                        f"Foram inseridos {inseridos} registos a partir de:\n{caminho}",
-                    )
+                    self.start_import_thread(caminho)
                 else:
                     messagebox.showwarning(
                         "Importação cancelada",
                         "Não foi seleccionado nenhum ficheiro. "
                         "Pode importar mais tarde na 'Aplicação de Inserção'."
                     )
-
-            # Em qualquer caso, segue para o menu principal
-            self.show_frame("MainMenuFrame")
+                    self.show_frame("MainMenuFrame")
+            else:
+                 # Em qualquer caso, segue para o menu principal
+                self.show_frame("MainMenuFrame")
 
         except Exception as exc:
             messagebox.showerror(
@@ -470,6 +470,46 @@ class App(tk.Tk):
                 f"Ocorreu um erro ao verificar/importar o neo.csv:\n{exc}"
             )
             self.show_frame("MainMenuFrame")
+
+    def start_import_thread(self, csv_path):
+        self.show_frame("LoadingFrame")
+        self.import_queue = queue.Queue()
+        
+        def run_import():
+            try:
+                def cb(curr, tot, el):
+                    self.import_queue.put(("progress", curr, tot, el))
+                
+                count = importar_neo_csv(self.db_conn, csv_path, progress_callback=cb)
+                self.import_queue.put(("done", count))
+            except Exception as e:
+                self.import_queue.put(("error", str(e)))
+
+        threading.Thread(target=run_import, daemon=True).start()
+        self.check_import_queue()
+
+    def check_import_queue(self):
+        try:
+            while True:
+                msg = self.import_queue.get_nowait()
+                if msg[0] == "progress":
+                    _, curr, tot, el = msg
+                    if "LoadingFrame" in self.frames and isinstance(self.frames["LoadingFrame"], LoadingFrame):
+                        self.frames["LoadingFrame"].update_progress(curr, tot, el)
+                elif msg[0] == "done":
+                    count = msg[1]
+                    messagebox.showinfo("Importação concluída", f"Foram inseridos {count} registos.")
+                    self.show_frame("MainMenuFrame")
+                    return
+                elif msg[0] == "error":
+                    err = msg[1]
+                    messagebox.showerror("Erro", f"Erro na importação: {err}")
+                    self.show_frame("MainMenuFrame")
+                    return
+        except queue.Empty:
+            pass
+        
+        self.after(100, self.check_import_queue)
 
 
     def on_logout(self):
@@ -503,6 +543,49 @@ class App(tk.Tk):
             # Inserir novas linhas
             for row in rows:
                 tree.insert("", "end", values=[row[c] for c in cols])
+
+
+
+class LoadingFrame(ttk.Frame):
+    def __init__(self, parent, controller: App):
+        super().__init__(parent)
+        self.controller = controller
+        self.configure(padding=40)
+        
+        self.lbl_title = ttk.Label(self, text="A Processar...", font=("Segoe UI", 16, "bold"))
+        self.lbl_title.pack(pady=(0, 20))
+        
+        self.progress = ttk.Progressbar(self, mode='determinate', length=400)
+        self.progress.pack(pady=10)
+        
+        self.lbl_status = ttk.Label(self, text="A iniciar...", font=("Segoe UI", 10))
+        self.lbl_status.pack(pady=5)
+        
+        self.lbl_time = ttk.Label(self, text="Decorrido: 00:00 | Estimado: --:--", font=("Segoe UI", 9))
+        self.lbl_time.pack(pady=5)
+
+    def update_progress(self, current, total, elapsed):
+        percent = (current / total) * 100
+        self.progress['value'] = percent
+        
+        # Format elapsed
+        el_min = int(elapsed // 60)
+        el_sec = int(elapsed % 60)
+        
+        # Estimar ETA
+        if current > 0:
+            rate = current / elapsed
+            remaining = total - current
+            eta_seconds = remaining / rate
+            eta_min = int(eta_seconds // 60)
+            eta_sec = int(eta_seconds % 60)
+            eta_str = f"{eta_min:02d}:{eta_sec:02d}"
+        else:
+            eta_str = "--:--"
+
+        self.lbl_status.configure(text=f"Processado: {current}/{total} ({percent:.1f}%)")
+        self.lbl_time.configure(text=f"Decorrido: {el_min:02d}:{el_sec:02d} | Estimado: {eta_str}")
+        self.update_idletasks()
 
 
 class LoginFrame(ttk.Frame):

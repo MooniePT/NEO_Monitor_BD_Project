@@ -91,9 +91,10 @@ def _safe_date(value):
         return None
 
 
-def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str) -> int:
+def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str, progress_callback=None) -> int:
     """
     Importa dados do neo.csv de forma OTIMIZADA (Bulk Insert).
+    progress_callback(current, total, elapsed_time_seconds)
     """
     path = Path(caminho_ficheiro)
     if not path.exists():
@@ -134,13 +135,16 @@ def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str) -> int:
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'neo.csv', ?)
     """
 
-    BATCH_SIZE = 1000
+    BATCH_SIZE = 5000
     batch_asteroides = []
     batch_pdes = []
     batch_orbital_data = {}  # pdes -> dados orbitais
 
     inseridos = 0
     erros = 0
+    
+    import time
+    start_time = time.time()
 
     print("A iniciar inserção em lote...")
 
@@ -237,10 +241,15 @@ def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str) -> int:
                 # 5. Commit e Limpeza
                 conn.commit()
                 inseridos += len(batch_asteroides)
-                print(
-                    f"  Progresso: {inseridos}/{total_linhas} "
-                    f"({(inseridos/total_linhas)*100:.1f}%)"
-                )
+                
+                elapsed = time.time() - start_time
+                if progress_callback:
+                    progress_callback(inseridos, total_linhas, elapsed)
+                else:
+                    print(
+                        f"  Progresso: {inseridos}/{total_linhas} "
+                        f"({(inseridos/total_linhas)*100:.1f}%)"
+                    )
 
                 batch_asteroides = []
                 batch_pdes = []

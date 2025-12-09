@@ -1,0 +1,70 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[portuguese]{babel}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{color}
+
+\geometry{margin=2.5cm}
+
+\title{Relatório Técnico - Fase 2: Otimização e Interface Gráfica}
+\author{Carlos Farinha (a53491) \and Bernardete Coelho (a53654)}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Este documento descreve as atividades realizadas na segunda fase do projeto de Monitorização de NEOs (Near-Earth Objects). O foco principal recaiu sobre a otimização do processo de importação de dados, a melhoria da responsividade da interface gráfica e a resolução de inconsistências na visualização de dados críticos, como alertas e rankings de asteroides perigosos (PHAs).
+\end{abstract}
+
+\section{Introdução}
+O sistema de monitorização de NEOs requer o processamento de grandes volumes de dados orbitais. A primeira implementação funcional da importação de dados revelou problemas de desempenho e bloqueio da interface do utilizador (UI) durante operações longas. Adicionalmente, foram detetadas falhas na apresentação de dados nas secções de monitorização e alertas, decorrentes de inconsistências entre o esquema da base de dados e as consultas SQL.
+
+\section{Otimização do Processo de Importação}
+
+\subsection{Aumento do Tamanho de Lote (Batch Size)}
+O mecanismo original de inserção de dados utilizava transações unitárias ou pequenos lotes (1000 registos), o que gerava um \textit{overhead} significativo de comunicação com o servidor SQL. 
+\textbf{Solução:} O tamanho do lote de inserção (`BATCH_SIZE`) foi aumentado para 5000 registos, reduzindo drasticamente o número de \textit{round-trips} necessários para importar arquivos volumosos como o `neo.csv`.
+
+\subsection{Implementação de Multithreading}
+A importação síncrona executada na \textit{main thread} do Tkinter causava o bloqueio da aplicação ("Não Responde") durante o processo.
+\textbf{Solução:} A lógica de importação foi migrada para uma \textit{background thread} utilizando o módulo `threading`. A comunicação com a UI para atualização de progresso foi implementada através de uma `queue.Queue`, garantindo a thread-safety das operações gráficas.
+
+\section{Melhorias na Interface Gráfica (UI)}
+
+\subsection{LoadingFrame}
+Foi desenvolvido um novo componente visual, `LoadingFrame`, para fornecer feedback em tempo real ao utilizador. Este componente apresenta:
+\begin{itemize}
+    \item Uma barra de progresso determinística;
+    \item Contagem de registos processados vs. total;
+    \item Tempo decorrido;
+    \item Estimativa de Tempo de Chegada (ETA), calculada dinamicamente com base na velocidade média de inserção.
+\end{itemize}
+
+\section{Correção de Utilitários de Dados}
+
+\subsection{Conversor MPCORB}
+O script `converter_mpcorb_para_csv.py` apresentava dificuldades em localizar o ficheiro fonte `MPCORB.DAT` e utilizava um delimitador incorreto para a importação subsequente.
+\textbf{Correção:} O script foi atualizado para resolver caminhos de forma relativa ao diretório de execução e para exportar o ficheiro `mpcorb.csv` utilizando ponto-e-vírgula (`;`) como delimitador, mantendo a consistência com o formato esperado pelo importador principal.
+
+\section{Resolução de Problemas de Dados e Consultas}
+
+\subsection{Inconsistências em Consultas SQL}
+Durante a verificação, constatou-se que certas vistas e consultas na aplicação falhavam ou não retornavam dados:
+\begin{enumerate}
+    \item \textbf{Últimos Asteroides:} A consulta ordenava por uma coluna inexistente (`data_descoberta`). Foi corrigida para ordenar pelo identificador sequencial (`id_asteroide DESC`).
+    \item \textbf{Ranking PHAs:} A consulta solicitava a coluna `nome_asteroide`, enquanto a vista disponibilizava `nome_completo`. O código Python foi ajustado para corresponder à vista.
+\end{enumerate}
+
+\subsection{Sincronização de Aproximações (Alertas)}
+A secção de alertas encontrava-se vazia, pois a tabela central `Aproximacao_Proxima` não era populada pelo ficheiro `neo.csv` (que contém apenas elementos orbitais). Os dados de aproximação existem nas tabelas importadas da ESA (`ESA_APROXIMACOES_PROXIMAS`), mas não estavam ligados ao sistema de alertas.
+\textbf{Solução:} Foi desenvolvida uma ferramenta de sincronização (`src/tools/sync_esa_approaches.py`) que migra os dados de aproximação da ESA para a tabela principal, ativando assim os triggers de geração de alertas para aproximações críticas (distância lunar $\le 10$).
+
+\section{Conclusão}
+As intervenções realizadas resultaram numa aplicação significativamente mais robusta e responsiva. O processo de importação é agora transparente e não bloqueante, e as funcionalidades críticas de monitorização e alertas operam corretamente com base nos dados importados e sincronizados.
+
+\end{document}
