@@ -65,6 +65,9 @@ IF OBJECT_ID('dbo.Prioridade_Alerta', 'U') IS NOT NULL DROP TABLE dbo.Prioridade
 IF OBJECT_ID('dbo.Nivel_Alerta', 'U') IS NOT NULL DROP TABLE dbo.Nivel_Alerta;
 IF OBJECT_ID('dbo.Classe_Orbital', 'U') IS NOT NULL DROP TABLE dbo.Classe_Orbital;
 
+-- Tabelas Temporarias.
+IF OBJECT_ID('dbo.neo_wizard', 'U') IS NOT NULL DROP TABLE dbo.neo_wizard;
+IF OBJECT_ID('dbo.mpcorb_wizard', 'U') IS NOT NULL DROP TABLE dbo.mpcorb_wizard;  
 GO
 
 PRINT '=== RESET CONCLUÍDO - BASE DE DADOS LIMPA ==='
