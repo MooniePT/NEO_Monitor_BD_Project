@@ -1,0 +1,9 @@
+nome,versao,fornecedor,tipo_licenca,website
+Astrometrica,4.12,Herbert Raab,Commercial,https://www.astrometrica.at/
+Tycho Tracker,2.3,Tycho Tracker,Freemium,https://tycho-tracker.com/
+SExtractor,2.28,CEA / TERAPIX,GPL,https://sextractor.readthedocs.io/
+IRAF,2.16,NOIRLab / Community,Open Source,https://iraf-community.github.io/
+NEO_Monitoring Pipeline,0.1,UBI,Internal,https://example.invalid/neo-monitoring
+Python (Astropy stack),2025.0,Community,BSD/MIT,https://www.astropy.org/
+OpenCV,4.10,OpenCV,Apache-2.0,https://opencv.org/
+MPC Tools (Export/Submit),1.0,MPC / Community,Varies,https://minorplanetcenter.net/

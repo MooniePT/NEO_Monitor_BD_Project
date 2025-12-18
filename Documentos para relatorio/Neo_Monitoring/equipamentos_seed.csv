@@ -1,0 +1,9 @@
+nome,modelo,tipo,abertura_m,distancia_focal_m,notas
+RC Follow-up 0.6m,RC-600,Telescópio,0.60,4.80,Follow-up astrométrico (campo moderado)
+Schmidt Survey 1.0m,SCH-1000,Telescópio,1.00,3.00,Campo largo para survey
+Reflector 1.5m,REF-1500,Telescópio,1.50,12.0,Follow-up e fotometria
+Telescope 2.0m Fast,FAST-2000,Telescópio,2.00,8.00,Follow-up rápido em janelas curtas
+Small Survey 0.25m,SUR-250,Telescópio,0.25,1.00,Station de treino / testes
+Wide-field Camera Rig,WFC-01,Câmara,,,Conjunto de câmaras para campos largos
+Spectrograph Module,SPEC-02,Espectrógrafo,,,Caracterização espectral
+DSN Radar 70m,DSS-14,Radar,70.0,,Caracterização por radar (quando aplicável)

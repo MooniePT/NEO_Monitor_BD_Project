@@ -1,0 +1,11 @@
+codigo,nome,pais,cidade,latitude_graus,longitude_graus,altitude_m,equipamento_nome,astronomo_email
+PT-UBI,Centro Observacional UBI (Covilhã),Portugal,Covilhã,40.280,-7.505,700,RC Follow-up 0.6m,ana.ribeiro@neo.local
+ES-CALAR,Observatório Calar Alto (seed),Espanha,Almería,37.220,-2.546,2168,Schmidt Survey 1.0m,miguel.santos@neo.local
+US-KITT,Kitt Peak Station (seed),EUA,Arizona,31.958,-111.598,2096,Reflector 1.5m,tiago.pereira@neo.local
+CL-CTIO,CTIO (seed),Chile,Coquimbo,-30.169,-70.806,2200,Telescope 2.0m Fast,sofia.almeida@neo.local
+CL-PAR,Paranal (seed),Chile,Antofagasta,-24.627,-70.404,2635,Telescope 2.0m Fast,helena.duarte@neo.local
+HI-MKEA,Mauna Kea (seed),EUA,Hawai‘i,19.820,-155.468,4205,Reflector 1.5m,beatriz.costa@neo.local
+AU-SSO,Siding Spring (seed),Austrália,NSW,-31.273,149.071,1165,Small Survey 0.25m,carla.silva@neo.local
+ZA-SUTH,Sutherland (seed),África do Sul,Northern Cape,-32.379,20.811,1798,Reflector 1.5m,pedro.gomes@neo.local
+IT-ASIAGO,Asiago (seed),Itália,Vicenza,45.843,11.574,1366,RC Follow-up 0.6m,ines.martins@neo.local
+US-DSN,DSN Goldstone (seed),EUA,Califórnia,35.247,-116.793,1000,DSN Radar 70m,joao.ferreira@neo.local
