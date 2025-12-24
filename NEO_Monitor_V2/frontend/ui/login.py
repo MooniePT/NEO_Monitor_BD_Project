@@ -5,10 +5,11 @@ Explicit sizing to prevent ANY clipping issues
 import sys
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, 
-    QCheckBox, QMessageBox, QFrame
+    QCheckBox, QFrame
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
+from frontend.ui.message_utils import show_warning, show_error
 
 
 class LoginWindow(QWidget):
@@ -110,6 +111,7 @@ class LoginWindow(QWidget):
                 border: 2px solid #1976d2;
             }
         """)
+        self.password_input.returnPressed.connect(self.handle_login)
         layout.addWidget(self.password_input)
         
         layout.addSpacing(10)
@@ -149,19 +151,66 @@ class LoginWindow(QWidget):
         
         layout.addStretch()
         
+        # Load saved credentials if any
+        self.load_credentials()
+        
+    def load_credentials(self):
+        """Load saved credentials from file"""
+        import json
+        import os
+        
+        credentials_file = "login_credentials.json"
+        if os.path.exists(credentials_file):
+            try:
+                with open(credentials_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                self.username_input.setText(data.get("username", ""))
+                # Don't load password for security
+                self.remember_checkbox.setChecked(data.get("remember", False))
+            except Exception as e:
+                print(f"Warning: Could not load credentials: {e}")
+    
+    def save_credentials(self):
+        """Save credentials to file if remember is checked"""
+        import json
+        
+        credentials_file = "login_credentials.json"
+        
+        if self.remember_checkbox.isChecked():
+            data = {
+                "username": self.username_input.text().strip(),
+                "remember": True
+            }
+            try:
+                with open(credentials_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+            except Exception as e:
+                print(f"Warning: Could not save credentials: {e}")
+        else:
+            # Remove saved credentials if unchecked
+            import os
+            if os.path.exists(credentials_file):
+                try:
+                    os.remove(credentials_file)
+                except Exception as e:
+                    print(f"Warning: Could not remove credentials: {e}")
+        
     def handle_login(self):
         """Handle login"""
         username = self.username_input.text().strip()
         password = self.password_input.text()
         
         if not username or not password:
-            QMessageBox.warning(self, "Erro", "Preencha todos os campos.")
+            show_warning(self, "Erro", "Preencha todos os campos.")
             return
             
         if username == "admin" and password == "admin":
+            # Save credentials if remember is checked
+            self.save_credentials()
             self.login_successful.emit(username)
         else:
-            QMessageBox.critical(self, "Erro", "Credenciais inválidas.")
+            show_error(self, "Erro", "Credenciais inválidas.")
             self.password_input.clear()
 
 

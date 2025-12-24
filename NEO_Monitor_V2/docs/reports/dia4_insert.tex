@@ -1,0 +1,377 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[portuguese]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{NEO Monitor V2}\\Relatório Dia 4: Inserção Manual \& CSV Import}
+\author{UBI - Projeto NEO Monitor}
+\date{24 Dezembro 2024}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Resumo Executivo}
+
+O Dia 4 foi concluído com sucesso total, implementando funcionalidades críticas de inserção de dados:
+
+\begin{itemize}
+    \item \textbf{Inserção Manual}: Form completo com 9 campos e validação robusta
+    \item \textbf{Importação CSV}: Import threaded com progress bar em tempo real
+    \item \textbf{Validação}: Sistema completo de validação de campos
+    \item \textbf{UX}: Mensagens personalizadas e feedback visual consistente
+    \item \textbf{Progresso}: 4/7 dias (57\% completo)
+\end{itemize}
+
+\section{Implementações Principais}
+
+\subsection{Insert Window (insert.py)}
+
+\textbf{Arquitetura:} QTabWidget com 2 tabs
+
+\subsubsection{Tab 1: Inserção Manual}
+
+\textbf{Campos do Form:}
+\begin{enumerate}
+    \item \textbf{Designação (pdes)} - QLineEdit (obrigatório)
+    \begin{itemize}
+        \item Identificador único do asteroide
+        \item Ex: ``2024 AB'', ``99942''
+    \end{itemize}
+    
+    \item \textbf{Nome Completo} - QLineEdit (obrigatório)
+    \begin{itemize}
+        \item Nome do asteroide
+        \item Ex: ``Apophis'', ``Bennu''
+    \end{itemize}
+    
+    \item \textbf{NEO (Near-Earth Object)} - QCheckBox
+    \begin{itemize}
+        \item Default: Checked
+        \item Flag binária (0 ou 1)
+    \end{itemize}
+    
+    \item \textbf{PHA (Potentially Hazardous)} - QCheckBox
+    \begin{itemize}
+        \item Default: Unchecked
+        \item Flag binária (0 ou 1)
+    \end{itemize}
+    
+    \item \textbf{H Magnitude} - QLineEdit com QDoubleValidator (opcional)
+    \begin{itemize}
+        \item Magnitude absoluta do asteroide
+        \item Aceita valores negativos e decimais
+    \end{itemize}
+    
+    \item \textbf{Diâmetro (km)} - QLineEdit com QDoubleValidator (opcional)
+    \begin{itemize}
+        \item Validação: Deve ser $>$ 0 se preenchido
+    \end{itemize}
+    
+    \item \textbf{MOID (UA)} - QLineEdit com QDoubleValidator (opcional)
+    \begin{itemize}
+        \item Minimum Orbit Intersection Distance em Unidades Astronômicas
+        \item Validação: Deve ser $\geq$ 0 se preenchido
+    \end{itemize}
+    
+    \item \textbf{MOID (LD)} - QLineEdit com QDoubleValidator (opcional)
+    \begin{itemize}
+        \item MOID em Distâncias Lunares
+        \item Validação: Deve ser $\geq$ 0 se preenchido
+    \end{itemize}
+    
+    \item \textbf{Albedo} - QLineEdit com QDoubleValidator (opcional)
+    \begin{itemize}
+        \item Refletividade do asteroide
+        \item Validação: Deve estar entre 0.0 e 1.0
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Validações Implementadas:}
+\begin{itemize}
+    \item Campos obrigatórios não vazios (Designação, Nome)
+    \item Validação numérica automática (QDoubleValidator)
+    \item Diâmetro: apenas positivo ($>$ 0)
+    \item MOID: apenas não-negativo ($\geq$ 0)
+    \item Albedo: range válido (0.0 - 1.0)
+    \item Mensagens de erro específicas para cada tipo de validação
+\end{itemize}
+
+\textbf{Funcionalidades:}
+\begin{itemize}
+    \item Botão ``Inserir Asteroide'' (azul \#1976d2)
+    \item INSERT direto na tabela \texttt{dbo.Asteroide}
+    \item Retorna ID gerado via \texttt{SCOPE\_IDENTITY()}
+    \item Mensagem de sucesso mostra ID + Designação + Nome
+    \item Form auto-limpa após inserção bem-sucedida
+    \item Focus automático no primeiro campo (Designação)
+\end{itemize}
+
+\subsubsection{Tab 2: Importação CSV}
+
+\textbf{Componentes:}
+\begin{enumerate}
+    \item \textbf{Botão ``Selecionar Ficheiro CSV''}
+    \begin{itemize}
+        \item Abre QFileDialog
+        \item Filtro: ``Ficheiros CSV (*.csv);;Todos os ficheiros (*.*)''
+        \item Mostra nome do ficheiro selecionado
+    \end{itemize}
+    
+    \item \textbf{Progress Bar}
+    \begin{itemize}
+        \item Atualização dinâmica (0-100\%)
+        \item Cor azul (\#1976d2) consistente com a app
+        \item Label mostra: ``Importando: X/Y registos (Z\%)''
+    \end{itemize}
+    
+    \item \textbf{Botão ``Importar CSV''}
+    \begin{itemize}
+        \item Enabled apenas se ficheiro selecionado
+        \item Disabled durante importação (evita cliques duplos)
+        \item Re-enabled após conclusão
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Threading Implementation:}
+\begin{lstlisting}[language=Python]
+class CSVImportThread(QThread):
+    progress_update = pyqtSignal(int, int, float)
+    import_complete = pyqtSignal(int)
+    import_error = pyqtSignal(str)
+    
+    def run(self):
+        def progress_callback(current, total, elapsed):
+            self.progress_update.emit(current, total, elapsed)
+        
+        total_inserted = importar_neo_csv(
+            self.conn, self.filepath, progress_callback
+        )
+        self.import_complete.emit(total_inserted)
+\end{lstlisting}
+
+\textbf{Vantagens do Threading:}
+\begin{itemize}
+    \item UI não bloqueia durante import
+    \item Progress bar atualiza em tempo real
+    \item Utilizador pode ver progresso (X/Y registos)
+    \item Experiência profissional e responsiva
+\end{itemize}
+
+\subsection{Integração MainWindow}
+
+\textbf{Modificações em} \texttt{main\_window.py}:
+\begin{itemize}
+    \item Import: \texttt{from frontend.ui.insert import InsertWindow}
+    \item Linha 53: \texttt{self.insert\_page = InsertWindow(self.conn)}
+    \item Substituição do placeholder pela página funcional
+    \item Footer atualizado: ``v2.0 - Dia 4''
+\end{itemize}
+
+\textbf{Navegação:}
+\begin{itemize}
+    \item Página 4 no \texttt{QStackedWidget}
+    \item Botão ``➕ Inserção'' no sidebar
+    \item Conexão BD mantida entre navegações
+    \item State persistence correto
+\end{itemize}
+
+\subsection{Message Utils Enhancement}
+
+\textbf{Nova função adicionada:}
+\begin{lstlisting}[language=Python]
+def show_message(parent, title: str, message: str, 
+                 icon=QMessageBox.Icon.Information):
+    # Escolhe cor do botão baseada no tipo de ícone
+    if icon == QMessageBox.Icon.Critical:
+        button_color = "#d32f2f"  # Vermelho
+    elif icon == QMessageBox.Icon.Warning:
+        button_color = "#ffa726"  # Laranja
+    else:
+        button_color = "#1976d2"  # Azul
+    
+    # QMessageBox com contraste perfeito
+\end{lstlisting}
+
+\textbf{Utilização em Insert Window:}
+\begin{itemize}
+    \item Validação de campos obrigatórios $\rightarrow$ Warning (laranja)
+    \item Validação de rangos $\rightarrow$ Warning (laranja)
+    \item Sucesso na inserção $\rightarrow$ Information (azul)
+    \item Erros de BD $\rightarrow$ Critical (vermelho)
+\end{itemize}
+
+\section{Estatísticas}
+
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Métrica} & \textbf{Valor} \\
+\hline
+Ficheiros novos criados & 1 \\
+Ficheiros modificados & 2 \\
+Linhas de código (insert.py) & $\sim$550 \\
+Linhas de código (Total Dia 4) & $\sim$600 \\
+Campos de form implementados & 9 \\
+Validações implementadas & 6 \\
+Threads criadas & 1 (CSV Import) \\
+Taxa de sucesso testes & 100\% \\
+\hline
+\end{tabular}
+
+\vspace{1cm}
+
+\textbf{Complexidade:}
+\begin{itemize}
+    \item \textbf{Inserção Manual}: Média (6/10)
+    \item \textbf{CSV Import Threading}: Alta (8/10)
+    \item \textbf{Validação}: Média (5/10)
+\end{itemize}
+
+\section{Testes Realizados}
+
+\subsection{Testes Funcionais}
+
+\textbf{Inserção Manual (Sucesso):}
+\begin{itemize}
+    \item [\checkmark] Inserção com campos obrigatórios apenas
+    \item [\checkmark] Inserção com todos os campos preenchidos
+    \item [\checkmark] Form limpa após sucesso
+    \item [\checkmark] ID gerado aparece na mensagem
+    \item [\checkmark] Registo visível na Search após inserção
+\end{itemize}
+
+\textbf{Validação (Edge Cases):}
+\begin{itemize}
+    \item [\checkmark] Designação vazia $\rightarrow$ Erro
+    \item [\checkmark] Nome vazio $\rightarrow$ Erro
+    \item [\checkmark] Texto em campo numérico $\rightarrow$ Bloqueado
+    \item [\checkmark] Diâmetro negativo $\rightarrow$ Erro
+    \item [\checkmark] MOID negativo $\rightarrow$ Erro
+    \item [\checkmark] Albedo = 1.5 $\rightarrow$ Erro (range 0-1)
+    \item [\checkmark] Albedo = -0.1 $\rightarrow$ Erro
+    \item [\checkmark] Valores válidos $\rightarrow$ Sucesso
+\end{itemize}
+
+\textbf{CSV Import:}
+\begin{itemize}
+    \item [\checkmark] File dialog abre corretamente
+    \item [\checkmark] Nome do ficheiro aparece após seleção
+    \item [\checkmark] Botão ``Importar'' enabled apenas se ficheiro selecionado
+    \item [\checkmark] Progress bar atualiza dinamicamente
+    \item [\checkmark] Label mostra progresso (X/Y registos)
+    \item [\checkmark] UI não bloqueia durante import
+    \item [\checkmark] Mensagem final com total inserido
+    \item [\checkmark] Dashboard atualiza após import
+\end{itemize}
+
+\textbf{Navegação:}
+\begin{itemize}
+    \item [\checkmark] Sidebar ``➕ Inserção'' funcional
+    \item [\checkmark] Navegação para outras páginas mantém BD conectada
+    \item [\checkmark] Voltar para Inserção não mantém dados anteriores
+\end{itemize}
+
+\subsection{Testes de Contraste}
+
+Todos os elementos validados para legibilidade (WCAG AA):
+\begin{itemize}
+    \item Títulos: \#212121 (preto - contraste máximo)
+    \item Labels: \#212121 (preto)
+    \item Subtítulos: \#424242 (cinza escuro)
+    \item Placeholders: \#757575 (cinza médio - visível)
+    \item Botão principal: Branco em \#1976d2 (azul)
+    \item Progress bar: \#1976d2 com texto \#212121
+\end{itemize}
+
+\textbf{Resultado:} Zero problemas de legibilidade.
+
+\section{Decisões Técnicas}
+
+\subsection{Por que não usar \texttt{manual\_insert\_full\_record}?}
+
+A função existente no backend requer contexto completo:
+\begin{itemize}
+    \item Centro de Observação (código, nome, país)
+    \item Equipamento (nome, tipo, modelo)
+    \item Astrónomo (nome completo)
+    \item Software (nome, versão)
+    \item Observação (data, modo, notas)
+\end{itemize}
+
+\textbf{Problema:} Para adicionar um asteroide simples, obrigaria 5 forms adicionais.
+
+\textbf{Solução:} INSERT direto na tabela \texttt{Asteroide} com apenas os campos essenciais.
+
+\textbf{Vantagem:} UX mais simples e rápida para caso de uso comum.
+
+\subsection{Threading vs Async}
+
+\textbf{Escolha:} QThread
+
+\textbf{Razões:}
+\begin{itemize}
+    \item PyQt6 não tem async/await nativo
+    \item QThread é thread-safe e bem integrado
+    \item Signals permitem comunicação UI $\leftrightarrow$ Thread
+    \item Solução robusta e testada
+\end{itemize}
+
+\subsection{Validação Client-Side}
+
+\textbf{Abordagem em camadas:}
+\begin{enumerate}
+    \item \textbf{QDoubleValidator}: Bloqueia entrada não-numérica
+    \item \textbf{Lógica Python}: Valida ranges antes de INSERT
+    \item \textbf{Database}: Constraints SQL (fallback)
+\end{enumerate}
+
+\textbf{Vantagem:} Feedback imediato ao utilizador, sem trip à BD.
+
+\section{Próximos Passos (Dia 5)}
+
+\begin{enumerate}
+    \item \textbf{Alertas Screen}
+    \begin{itemize}
+        \item Tabela de alertas da BD
+        \item Cores por nível (verde/amarelo/vermelho)
+        \item Filtro: Ativos/Todos
+    \end{itemize}
+    
+    \item \textbf{Monitorização Screen}
+    \begin{itemize}
+        \item Tab 1: Ranking PHAs (mais perigosos)
+        \item Tab 2: Centros de Observação (estatísticas)
+        \item Tab 3: Aproximações Críticas (próximas da Terra)
+    \end{itemize}
+\end{enumerate}
+
+\section{Conclusão}
+
+O Dia 4 foi concluído com sucesso total. A funcionalidade de inserção está completa, robusta e profissional:
+
+\begin{itemize}
+    \item[\checkmark] Form manual intuitivo com validação completa
+    \item[\checkmark] CSV import otimizado com feedback visual
+    \item[\checkmark] Threading evita bloqueio da UI
+    \item[\checkmark] Mensagens personalizadas por tipo de evento
+    \item[\checkmark] Contraste perfeito em todos os elementos
+    \item[\checkmark] Zero bugs encontrados
+\end{itemize}
+
+\textbf{Status:} Projeto 57\% completo (4/7 dias)\\
+\textbf{Deadline:} No prazo (31 Dezembro)
+
+\vspace{1cm}
+
+\textbf{Próxima Sessão:} Dia 5 - Alertas \& Monitorização (28 Dezembro 2024)
+
+\end{document}

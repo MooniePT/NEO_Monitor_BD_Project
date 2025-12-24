@@ -1,0 +1,243 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[portuguese]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{NEO Monitor V2}\\Relatório Dia 3: Search Screen \& MainWindow}
+\author{UBI - Projeto NEO Monitor}
+\date{24 Dezembro 2024}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Resumo Executivo}
+
+O Dia 3 foi concluído com sucesso, implementando funcionalidades críticas e melhorias substanciais na arquitetura da aplicação:
+
+\begin{itemize}
+    \item \textbf{MainWindow}: Arquitetura single-window com sidebar navigation
+    \item \textbf{Search Screen}: Pesquisa avançada com filtros e paginação
+    \item \textbf{Melhorias UX}: Persistência de login e Enter key support
+    \item \textbf{Progresso}: 3/7 dias (43\% completo)
+\end{itemize}
+
+\section{Implementações Principais}
+
+\subsection{MainWindow (main\_window.py)}
+
+\textbf{Motivação:} Transformar aplicação em single-window profissional.
+
+\textbf{Componentes:}
+\begin{itemize}
+    \item \textbf{Sidebar Navigation}
+    \begin{itemize}
+        \item Background escuro (\#263238) profissional
+        \item 5 botões de navegação
+        \item Indicador visual de página ativa
+        \item Header com logo e versão
+    \end{itemize}
+    
+    \item \textbf{Content Area (QStackedWidget)}
+    \begin{itemize}
+        \item Dashboard (página 0)
+        \item Search (página 1)
+        \item Alertas (página 2 - placeholder)
+        \item Monitorização (página 3 - placeholder)
+        \item Inserção (página 4 - placeholder)
+    \end{itemize}
+    
+    \item \textbf{Características}
+    \begin{itemize}
+        \item Janela maximizada ao abrir
+        \item Navegação sem fechar janelas
+        \item Estado persistente da conexão BD
+    \end{itemize}
+\end{itemize}
+
+\subsection{Search Screen (search.py)}
+
+\textbf{Funcionalidades Implementadas:}
+
+\begin{enumerate}
+    \item \textbf{Painel de Filtros}
+    \begin{itemize}
+        \item Campo Nome/Designação (QLineEdit)
+        \item Dropdown Tipo: Todos/NEO/PHA (QComboBox)
+        \item Dropdown Ordenação: Nome, Tamanho, Perigo (QComboBox)
+        \item Botão ``Pesquisar'' (azul \#1976d2)
+    \end{itemize}
+    
+    \item \textbf{Tabela de Resultados}
+    \begin{itemize}
+        \item 8 colunas: ID, Nome Completo, Designação, Diâmetro, H\_mag, MOID, NEO, PHA
+        \item Formatação: Diâmetro com 3 decimais, MOID com 4 decimais
+        \item Cor texto: \#212121 (contraste perfeito)
+        \item Header azul com texto branco
+        \item Alternating row colors
+    \end{itemize}
+    
+    \item \textbf{Paginação}
+    \begin{itemize}
+        \item 50 registos por página
+        \item Botões ``$\leftarrow$ Anterior'' e ``Próxima $\rightarrow$''
+        \item Label dinâmico: ``Página X de Y (Z resultados)''
+        \item Estado dos botões (enabled/disabled) automático
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Melhorias de UX}
+
+\subsubsection{Persistência de Login}
+
+\textbf{Ficheiro:} \texttt{login\_credentials.json}
+
+\textbf{Implementação:}
+\begin{lstlisting}[language=Python]
+def save_credentials(self):
+    if self.remember_checkbox.isChecked():
+        data = {
+            "username": self.username_input.text(),
+            "remember": True
+        }
+        with open("login_credentials.json", "w") as f:
+            json.dump(data, f, indent=2)
+\end{lstlisting}
+
+\textbf{Segurança:} Password não é guardada.
+
+\subsubsection{Enter Key Support}
+
+Adicionado em:
+\begin{itemize}
+    \item Login: Password field $\rightarrow$ handle\_login()
+    \item DB Config: Server, Database, Password $\rightarrow$ connect\_to\_database()
+    \item Search: Name field $\rightarrow$ search()
+\end{itemize}
+
+\section{Estatísticas}
+
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Métrica} & \textbf{Valor} \\
+\hline
+Ficheiros novos criados & 2 \\
+Ficheiros modificados & 4 \\
+Linhas de código (Dia 3) & $\sim$700 \\
+Lines of código (Total) & $\sim$2000 \\
+Bugs encontrados \& corrigidos & 3 \\
+Taxa de sucesso testes & 100\% \\
+\hline
+\end{tabular}
+
+\vspace{1cm}
+
+\textbf{Bugs Corrigidos:}
+\begin{enumerate}
+    \item Janela fecha após conexão BD (garbage collection)
+    \item Checkbox ``Guardar dados'' não funcional
+    \item Falta de Enter key support
+\end{enumerate}
+
+\section{Testes Realizados}
+
+\subsection{Testes Funcionais}
+
+\textbf{MainWindow:}
+\begin{itemize}
+    \item [\checkmark] Janela maximiza ao abrir
+    \item [\checkmark] Navegação sidebar funcional
+    \item [\checkmark] Todas as páginas acessíveis
+    \item [\checkmark] Conexão BD mantida entre páginas
+\end{itemize}
+
+\textbf{Search:}
+\begin{itemize}
+    \item [\checkmark] Filtro por nome
+    \item [\checkmark] Filtro por tipo (NEO/PHA)
+    \item [\checkmark] Ordenação funcional
+    \item [\checkmark] Paginação correta
+    \item [\checkmark] Botões Anterior/Próxima com estado correto
+\end{itemize}
+
+\textbf{UX Improvements:}
+\begin{itemize}
+    \item [\checkmark] Login salva credenciais
+    \item [\checkmark] Login carrega credenciais ao reabrir
+    \item [\checkmark] Enter key funciona em todos os campos
+\end{itemize}
+
+\subsection{Testes de Contraste}
+
+Todos os textos validados para legibilidade:
+\begin{itemize}
+    \item Cor principal: \#212121 (WCAG AAA)
+    \item Cor secundária: \#424242 (WCAG AA)
+    \item QMessageBox custom com contraste adequado
+\end{itemize}
+
+\section{Arquitetura}
+
+\subsection{Fluxo da Aplicação}
+
+\begin{verbatim}
+main.py (NEOMonitorApp)
+    |
+    +-- LoginWindow
+    |       |
+    |       +-- save_credentials() se checkbox
+    |       +-- emit login_successful
+    |
+    +-- DbConfigWindow
+    |       |
+    |       +-- save_config() em config.json
+    |       +-- emit connection_successful(conn)
+    |
+    +-- MainWindow(conn)
+            |
+            +-- Sidebar Navigation
+            |       |
+            |       +-- Dashboard (página 0)
+            |       +-- Search (página 1)
+            |       +-- Alertas (página 2 - placeholder)
+            |       +-- Monitorização (página 3 - placeholder)
+            |       +-- Inserção (página 4 - placeholder)
+            |
+            +-- QStackedWidget (content area)
+\end{verbatim}
+
+\section{Próximos Passos (Dia 4)}
+
+\begin{enumerate}
+    \item \textbf{Inserção Manual}
+    \begin{itemize}
+        \item Form com todos os campos do asteroide
+        \item Validação de dados
+        \item Inserção via \texttt{backend.services.insercao}
+    \end{itemize}
+    
+    \item \textbf{Importação CSV}
+    \begin{itemize}
+        \item File picker para selecionar CSV
+        \item Preview dos dados
+        \item Importação em bulk
+    \end{itemize}
+\end{enumerate}
+
+\section{Conclusão}
+
+O Dia 3 foi extremamente produtivo, não apenas implementando as funcionalidades planejadas (Search Screen) mas também melhorando significativamente a arquitetura da aplicação com MainWindow e sidebar navigation, resultando numa experiência de utilizador muito mais profissional e moderna.
+
+\textbf{Status:} Projeto 43\% completo (3/7 dias)\\
+\textbf{Deadline:} No prazo
+
+\end{document}

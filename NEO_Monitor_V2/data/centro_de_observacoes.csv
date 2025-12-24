@@ -1,0 +1,13 @@
+id_centro,codigo,nome,pais,cidade,latitude,longitude,altitude_m
+1,J04,Estação Óptica Terrestre da ESA,Espanha,Tenerife,28.300833,-16.511944,2393
+2,246,Observatorio Klet,Republica Checa,České Budějovice,48.863889,14.284722,1070
+3,033,Observatório Estadual da Turíngia Tautenburg,Alemanha,Tautenburg,50.980111,11.711167,341
+4,Z84,Observatório de Calar Alto-Schmidt,Espanha,Gergal,37.223611,-2.546111,2168
+5,J75,Observatorio Astronómico de La Sagra,Espanha,Granada,37.982778,-2.566111,1530
+6,204,Observatorio Schiaparelli,Itália,Varese,45.867778,8.770556,1205
+7,B63,Observatorio Solaris,Polónia,Luczanowice,50.111667,20.108056,240
+8,L80,Observatorio SpringBok,Namíbia,Tivoli,-23.460000,18.017500,1340
+9,Q12,Observatorio Nagano,Japão,Nagano,36.476944,137.825278,730
+10,W57,Observatorio La Silla TBT da ESA,Chile,La Higuera,-29.255278,-70.739167,2326
+11,Z58,Observatorio Cebreros TBT da ESA,Espanha,Cebreros,40.454167,-4.370000,706
+

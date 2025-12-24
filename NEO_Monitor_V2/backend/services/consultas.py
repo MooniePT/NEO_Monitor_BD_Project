@@ -132,7 +132,7 @@ def fetch_asteroides_neo(conn):
         nome_completo,
         pdes,
         diametro_km,
-        H_mag
+        h_mag
     FROM ASTEROIDE
     WHERE flag_neo = 1
     ORDER BY nome_completo;
@@ -147,7 +147,7 @@ def fetch_asteroides_pha(conn):
         nome_completo,
         pdes,
         diametro_km,
-        H_mag
+        h_mag
     FROM ASTEROIDE
     WHERE flag_pha = 1
     ORDER BY diametro_km DESC;
@@ -169,60 +169,62 @@ def fetch_filtered_asteroids(
     name: str = None, 
     min_size: float = None, 
     max_size: float = None, 
-    danger_level: str = "Todos", # Todos, SEO, PHA
-    sort_by: str = "Nome", # Nome, Tamanho (Desc), Tamanho (Asc), Perigo (MOID)
+    danger_level: str = "Todos", # Todos, NEO, PHA
+    sort_by: str = "Nome", # Nome, Tamanho (Desc), Tamanho (Asc),  Perigo (MOID)
     page: int = None,
     page_size: int = None
 ):
     """
     Pesquisa dinâmica com filtros.
+    NOTA 3FN: moid_ua agora está em Solucao_Orbital, fazemos LEFT JOIN.
     """
     query = """
     SELECT
-        id_asteroide,
-        pdes,
-        nome_completo,
-        diametro_km,
-        H_mag,
-        moid_ua,
-        flag_neo,
-        flag_pha,
+        a.id_asteroide,
+        a.pdes,
+        a.nome_completo,
+        a.diametro_km,
+        a.h_mag,
+        s.moid_ua,
+        a.flag_neo,
+        a.flag_pha,
         COUNT(*) OVER() as TotalCount
-    FROM dbo.Asteroide
+    FROM dbo.Asteroide a
+    LEFT JOIN dbo.Solucao_Orbital s ON a.id_asteroide = s.id_asteroide AND s.solucao_atual = 1
     WHERE 1=1
     """
     params = []
 
     if name:
-        query += " AND (nome_completo LIKE ? OR pdes LIKE ?)"
+        query += " AND (a.nome_completo LIKE ? OR a.pdes LIKE ?)"
         wildcard = f"%{name}%"
         params.extend([wildcard, wildcard])
     
     if min_size is not None:
-        query += " AND diametro_km >= ?"
+        query += " AND a.diametro_km >= ?"
         params.append(min_size)
 
     if max_size is not None:
-        query += " AND diametro_km <= ?"
+        query += " AND a.diametro_km <= ?"
         params.append(max_size)
 
     if danger_level == "NEO":
-        query += " AND flag_neo = 1"
+        query += " AND a.flag_neo = 1"
     elif danger_level == "PHA":
-        query += " AND flag_pha = 1"
+        query += " AND a.flag_pha = 1"
 
     # Sorting
     if sort_by == "Tamanho (Maior)":
-        query += " ORDER BY diametro_km DESC"
+        query += " ORDER BY a.diametro_km DESC"
     elif sort_by == "Tamanho (Menor)":
-        query += " ORDER BY diametro_km ASC"
+        query += " ORDER BY a.diametro_km ASC"
     elif sort_by == "Perigo (Mais próximo)":
-        # Menor MOID = Mais perigoso (em teoria de proximidade)
-        query += " ORDER BY moid_ua ASC" 
+        # Menor MOID = Mais perigoso
+        query += " ORDER BY s.moid_ua ASC" 
     else: # Nome
-        query += " ORDER BY nome_completo ASC"
+        query += " ORDER BY a.nome_completo ASC"
 
-    # Pagination logic (Simple implementation for SQL Server 2012+)
+    # Pagination logic
     if page is not None and page_size is not None:
          offset = (page - 1) * page_size
          query += f" OFFSET {offset} ROWS FETCH NEXT {page_size} ROWS ONLY"
@@ -243,7 +245,7 @@ def fetch_ultimos_asteroides(conn, limit=20):
         id_asteroide,
         nome_completo,
         diametro_km,
-        H_mag,
+        h_mag,
         flag_neo,
         flag_pha
     FROM dbo.Asteroide

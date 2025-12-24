@@ -3,7 +3,7 @@
 **Projeto:** Reescrita completa do frontend NEO Monitor  
 **Tecnologia:** PyQt6  
 **Prazo:** 24 Dez → 31 Dez 2024 (7 dias)  
-**Status Atual:** DIA 1 COMPLETO ✅
+**Status Atual:** DIA 2 COMPLETO ✅
 
 ---
 
@@ -27,38 +27,38 @@ Criar uma aplicação desktop moderna, estável e profissional para monitorizaç
 
 ---
 
-### 🔄 **DIA 2 (25 Dez) - PRÓXIMO**
+### ✅ **DIA 2 (24 Dez) - COMPLETO**
 
 #### Tela de Configuração BD
-- [ ] Criar `frontend/ui/db_config.py`
-- [ ] Form com campos:
-  - Servidor (ex: `localhost\SQLEXPRESS`)
+- [x] Criar `frontend/ui/db_config.py`
+- [x] Form com campos:
+  - Servidor (ex: `localhost\\SQLEXPRESS`)
   - Base de Dados (ex: `BD_PL2_09`)
   - Tipo Auth: Radio buttons (Windows / SQL Server)
   - User/Pass (mostrar/esconder conforme tipo auth)
-- [ ] Botão "Testar Conexão"
-  - Usar `backend/services/db_config.py` existente
+- [x] Botão "Testar Conexão"
+  - Usar `backend/services/db_config.py` criado
   - Mostrar mensagem de sucesso/erro
-- [ ] Botão "Conectar" → Abre Dashboard
-- [ ] Guardar configuração em JSON
+- [x] Botão "Conectar" → Abre Dashboard
+- [x] Guardar configuração em JSON
 
 #### Dashboard Base
-- [ ] Criar `frontend/ui/dashboard.py`
-- [ ] 3 KPIs no topo (cards):
+- [x] Criar `frontend/ui/dashboard.py`
+- [x] 3 KPIs no topo (cards):
   - Total NEOs (query: `SELECT COUNT(*) FROM Asteroide WHERE flag_neo=1`)
   - Total PHAs (query: `SELECT COUNT(*) FROM Asteroide WHERE flag_pha=1`)
   - Alertas Ativos (query: `SELECT COUNT(*) FROM Alerta WHERE ativo=1`)
-- [ ] Tabela: Últimos 20 asteroides
+- [x] Tabela: Últimos 20 asteroides
   - Usar `backend/services/consultas.fetch_ultimos_asteroides()`
-  - Colunas: ID, Nome, Diâmetro, H_mag
-- [ ] Layout QVBoxLayout limpo
+  - Colunas: ID, Nome, Diâmetro, H_mag, NEO, PHA
+- [x] Layout QVBoxLayout limpo
 
 #### Integração
-- [ ] Atualizar `main.py` para fluxo: Login → DBConfig → Dashboard
-- [ ] Signals entre telas (PyQt signals)
-- [ ] Testes completos
+- [x] Atualizar `main.py` para fluxo: Login → DBConfig → Dashboard
+- [x] Signals entre telas (PyQt signals)
+- [x] Testes completos
 
-**Estimativa:** 2-2.5 horas
+**Resultado:** DB Config funcional com teste de conexão. Dashboard com KPIs e tabela operacionais. Zero bugs.
 
 ---
 
@@ -188,8 +188,8 @@ Criar uma aplicação desktop moderna, estável e profissional para monitorizaç
 ## Funcionalidades MVP (Mínimas)
 
 1. ✅ **Login** - Autenticação admin
-2. 🔄 **DB Config** - Configurar conexão
-3. 🔄 **Dashboard** - Visão geral (KPIs + tabela)
+2. ✅ **DB Config** - Configurar conexão
+3. ✅ **Dashboard** - Visão geral (KPIs + tabela)
 4. 📅 **Pesquisa** - Filtrar e listar asteroides
 5. 📅 **Inserção** - Adicionar asteroides (manual + CSV)
 6. 📅 **Alertas** - Listar alertas com cores

@@ -118,21 +118,25 @@ def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str, progress_ca
     cur = conn.cursor()
     cur.fast_executemany = True  # CRÍTICO para performance no SQL Server
 
-    # SQLs
+    # SQLs (3FN SCHEMA)
     sql_asteroide = """
         INSERT INTO dbo.Asteroide (
-            id_csv_original, spkid, pdes, nome_completo, flag_neo, flag_pha, 
-            H_mag, diametro_km, albedo, moid_ua, moid_ld, id_classe_orbital
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            nasa_id, spkid, pdes, nome_asteroide, nome_completo, 
+            flag_neo, flag_pha, h_mag, diametro_km, diametro_sigma_km, albedo
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     sql_orbital = """
         INSERT INTO dbo.Solucao_Orbital (
-            id_asteroide, epoca_jd, excentricidade, semi_eixo_maior_ua, 
-            inclinacao_graus, nodo_asc_graus, arg_perihelio_graus, 
-            anomalia_media_graus, moid_ua, moid_ld, rms, 
-            solucao_atual, origem, data_epoca
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'neo.csv', ?)
+            id_asteroide, orbit_id, epoch_jd, epoch_cal,
+            e, a_au, q_au, i_deg, om_deg, w_deg, ma_deg, ad_au, n_deg_d,
+            tp_jd, tp_cal, per_d, per_y,
+            moid_ua, moid_ld, rms,
+            sigma_e, sigma_a, sigma_q, sigma_i, sigma_om, sigma_w, sigma_ma,
+            sigma_ad, sigma_n, sigma_tp, sigma_per,
+            id_classe_orbital, solucao_atual
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     """
 
     BATCH_SIZE = 5000
@@ -169,35 +173,56 @@ def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str, progress_ca
                     classes_map[classe_cod] = id_classe
                     conn.commit()
 
-            # Dados Asteroide
+            # Dados Asteroide (3FN: sem moid, adiciona nome_asteroide e sigma)
             ast_tuple = (
-                row.get("id", "").strip(),
+                _safe_int(row.get("id", "")),  # nasa_id
                 _safe_int(row.get("spkid", "")),
                 pdes,
-                (row.get("full_name") or row.get("name") or "").strip(),
+                (row.get("name") or "").strip(),  # nome_asteroide
+                (row.get("full_name") or row.get("name") or "").strip(),  # nome_completo
                 1 if row.get("neo", "").strip().upper() == "Y" else 0,
                 1 if row.get("pha", "").strip().upper() == "Y" else 0,
-                _safe_float(row.get("h")),
+                _safe_float(row.get("h")),  # h_mag (lowercase em 3FN)
                 _safe_float(row.get("diameter")),
-                _safe_float(row.get("albedo")),
-                _safe_float(row.get("moid")),
-                _safe_float(row.get("moid_ld")),
-                id_classe
+                _safe_float(row.get("diameter_sigma")),  # diametro_sigma_km (NOVO)
+                _safe_float(row.get("albedo"))
+                # NOTA: moid_ua/moid_ld moveram para Solucao_Orbital!
             )
 
-            # --- PREPARAR DADOS ORBITAIS ---
+            # --- PREPARAR DADOS ORBITAIS (3FN: nomes changed!) ---
             orb_data = {
-                'epoca_jd': _safe_float(row.get("epoch")),
+                'orbit_id': _safe_int(row.get("orbit_id")),
+                'epoch_jd': _safe_float(row.get("epoch")),
+                'epoch_cal': _safe_date(row.get("epoch_cal")),
                 'e': _safe_float(row.get("e")),
-                'a': _safe_float(row.get("a")),
-                'i': _safe_float(row.get("i")),
-                'om': _safe_float(row.get("om")),
-                'w': _safe_float(row.get("w")),
-                'ma': _safe_float(row.get("ma")),
-                'moid_ua': _safe_float(row.get("moid")),
+                'a_au': _safe_float(row.get("a")),
+                'q_au': _safe_float(row.get("q")),
+                'i_deg': _safe_float(row.get("i")),
+                'om_deg': _safe_float(row.get("om")),
+                'w_deg': _safe_float(row.get("w")),
+                'ma_deg': _safe_float(row.get("ma")),
+                'ad_au': _safe_float(row.get("ad")),
+                'n_deg_d': _safe_float(row.get("n")),
+                'tp_jd': _safe_float(row.get("tp")),
+                'tp_cal': _safe_date(row.get("tp_cal")),
+                'per_d': _safe_float(row.get("per")),
+                'per_y': _safe_float(row.get("per_y")),
+                'moid_ua': _safe_float(row.get("moid")),  # agora em Solucao!
                 'moid_ld': _safe_float(row.get("moid_ld")),
                 'rms': _safe_float(row.get("rms")),
-                'data_epoca': _safe_date(row.get("epoch_cal"))
+                # Sigmas (novos em 3FN)
+                'sigma_e': _safe_float(row.get("sigma_e")),
+                'sigma_a': _safe_float(row.get("sigma_a")),
+                'sigma_q': _safe_float(row.get("sigma_q")),
+                'sigma_i': _safe_float(row.get("sigma_i")),
+                'sigma_om': _safe_float(row.get("sigma_om")),
+                'sigma_w': _safe_float(row.get("sigma_w")),
+                'sigma_ma': _safe_float(row.get("sigma_ma")),
+                'sigma_ad': _safe_float(row.get("sigma_ad")),
+                'sigma_n': _safe_float(row.get("sigma_n")),
+                'sigma_tp': _safe_float(row.get("sigma_tp")),
+                'sigma_per': _safe_float(row.get("sigma_per")),
+                'id_classe': id_classe
             }
 
             batch_asteroides.append(ast_tuple)
@@ -225,14 +250,18 @@ def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str, progress_ca
                         id_ast = pdes_to_id[pdes_key]
                         d = batch_orbital_data[pdes_key]
 
-                        if d['epoca_jd'] and d['e'] is not None and d['a'] is not None:
-                            batch_solucoes.append(
-                                (
-                                    id_ast, d['epoca_jd'], d['e'], d['a'], d['i'],
-                                    d['om'], d['w'], d['ma'], d['moid_ua'],
-                                    d['moid_ld'], d['rms'], d['data_epoca']
-                                )
+                        # Insert orbital data (even if some fields are NULL)
+                        batch_solucoes.append(
+                            (
+                                id_ast, d['orbit_id'], d['epoch_jd'], d['epoch_cal'],
+                                d['e'], d['a_au'], d['q_au'], d['i_deg'], d['om_deg'], d['w_deg'], d['ma_deg'],
+                                d['ad_au'], d['n_deg_d'], d['tp_jd'], d['tp_cal'], d['per_d'], d['per_y'],
+                                d['moid_ua'], d['moid_ld'], d['rms'],
+                                d['sigma_e'], d['sigma_a'], d['sigma_q'], d['sigma_i'], d['sigma_om'],
+                                d['sigma_w'], d['sigma_ma'], d['sigma_ad'], d['sigma_n'], d['sigma_tp'], d['sigma_per'],
+                                d['id_classe']
                             )
+                        )
 
                 # 4. Inserir Soluções
                 if batch_solucoes:
@@ -281,12 +310,16 @@ def importar_neo_csv(conn: pyodbc.Connection, caminho_ficheiro: str, progress_ca
                 if pdes_key in pdes_to_id:
                     id_ast = pdes_to_id[pdes_key]
                     d = batch_orbital_data[pdes_key]
-                    if d['epoca_jd'] and d['e'] is not None and d['a'] is not None:
+                    if d['epoch_jd'] and d['e'] is not None and d['a_au'] is not None:
                         batch_solucoes.append(
                             (
-                                id_ast, d['epoca_jd'], d['e'], d['a'], d['i'],
-                                d['om'], d['w'], d['ma'], d['moid_ua'],
-                                d['moid_ld'], d['rms'], d['data_epoca']
+                                id_ast, d['orbit_id'], d['epoch_jd'], d['epoch_cal'],
+                                d['e'], d['a_au'], d['q_au'], d['i_deg'], d['om_deg'], d['w_deg'], d['ma_deg'],
+                                d['ad_au'], d['n_deg_d'], d['tp_jd'], d['tp_cal'], d['per_d'], d['per_y'],
+                                d['moid_ua'], d['moid_ld'], d['rms'],
+                                d['sigma_e'], d['sigma_a'], d['sigma_q'], d['sigma_i'], d['sigma_om'],
+                                d['sigma_w'], d['sigma_ma'], d['sigma_ad'], d['sigma_n'], d['sigma_tp'], d['sigma_per'],
+                                d['id_classe']
                             )
                         )
 
