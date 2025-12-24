@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "C:\Users\Carlos\Documents\GitHub\NEO_Monitor_BD_Project\NEO_Monitoring\debug_crash.py", line 16, in <module>
+    from src import gui_main
+  File "C:\Users\Carlos\Documents\GitHub\NEO_Monitor_BD_Project\NEO_Monitoring\src\gui_main.py", line 25, in <module>
+    from auth import (
+    ...<4 lines>...
+    )
+ModuleNotFoundError: No module named 'auth'
+=== DEBUG CRASH SCRIPT STARTED ===
+Importing gui_main...
+
+=== EXCEPTION CAUGHT ===
+Type: ModuleNotFoundError
+Message: No module named 'auth'
+
+=== FULL TRACEBACK ===
+
+=== DEBUG SCRIPT ENDED ===

@@ -156,14 +156,13 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("NEO Monitoring")
+        self.title("NEO Monitor - Mission Control")
         self.geometry("1440x900")
-        self.resizable(True, True) # Permitir resize
+        self.resizable(True, True)
 
         # Estado partilhado
         self.admin_user: str | None = None
         self.db_conn: pyodbc.Connection | None = None
-        self.dark_mode = True 
         self.config = self.load_config()
         self.current_frame_name = "LoginFrame"
         self.current_frame = None
@@ -171,115 +170,98 @@ class App(tk.Tk):
         # Carregar imagens
         self.load_images()
 
-        # Canvas para fundo animado
-        self.canvas = tk.Canvas(self, highlightthickness=0, bg="#050510")
+        # Canvas para fundo animado (Starfield)
+        self.canvas = tk.Canvas(self, highlightthickness=0, bg="#0b0d17")
         self.canvas.pack(fill="both", expand=True)
-        
-        self.bg_anim = BackgroundAnimation(self.canvas, 800, 600)
 
-        # Top Bar Widgets (agora no canvas)
-        self.lbl_welcome = ttk.Label(self, text="", font=("Segoe UI", 10, "bold"))
-        self.btn_theme = ttk.Button(self, text="☀️", width=3, command=self.toggle_theme)
-        
-        # Botão de Logout (criado mas não colocado inicialmente)
-        self.btn_logout = ttk.Button(self, text="🏃🚪", width=4, command=self.on_logout)
+        self.bg_anim = BackgroundAnimation(self.canvas, 1440, 900)
 
-        # Colocar widgets da top bar no canvas
-        self.canvas.create_window(10, 10, window=self.lbl_welcome, anchor="nw", tags="top_bar_left")
-        self.canvas.create_window(790, 10, window=self.btn_theme, anchor="ne", tags="top_bar_right")
 
         self.frames: dict[str, tk.Frame] = {}
-
-        # Criar frames
-        for FrameClass in (LoginFrame, DbConfigFrame, MainMenuFrame, InsercaoESAFrame, UserConfigFrame, LoadingFrame):
-            frame = FrameClass(parent=self, controller=self)
-            self.frames[FrameClass.__name__] = frame
 
         # Configurar estilos (Theme)
         self.style = ttk.Style(self)
         self.setup_theme()
-        
-        self.show_frame("LoginFrame")
+
+        # Criar frames
+        # Nota: A ordem de importação é importante se houver dependencias
+        # Vamos redefinir as frames abaixo
+        from tkinter import font
+        self.default_font = font.nametofont("TkDefaultFont")
+        self.default_font.configure(family="Segoe UI", size=10)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.bind("<Configure>", self.on_resize)
 
+        for FrameClass in (LoginFrame, DbConfigFrame, MainMenuFrame, InsercaoESAFrame, UserConfigFrame, LoadingFrame):
+             frame = FrameClass(parent=self, controller=self)
+             self.frames[FrameClass.__name__] = frame
+
+        self.show_frame("LoginFrame")
+
+
+
+
     def on_resize(self, event):
-        # Verificar se o evento é da janela principal
         if event.widget == self:
             w, h = event.width, event.height
             self.bg_anim.update_dimensions(w, h)
-            
-            # Atualizar posições
-            self.canvas.coords("top_bar_right", w - 10, 10)
-            
-            if self.current_frame_name != "LoginFrame" and self.img_logo_icon:
-                 self.canvas.coords("corner_icon", 10, h - 10)
-            
-            # Atualizar posição do botão de logout se visível
-            if self.current_frame_name == "MainMenuFrame":
-                self.canvas.coords("logout_btn", w - 10, h - 10)
-
-            # Re-centrar o cartão
             self.update_card_position()
 
-    def on_frame_configure(self, event):
-        # Quando o frame muda de tamanho, atualizar o cartão
-        self.update_card_position()
-
     def update_card_position(self):
-        if not self.current_frame:
-            return
-
-        # Obter dimensões da janela
+        if not self.current_frame: return
+        
+        # Se for MainMenuFrame, ocupa quase tudo (menos a navbar se houver)
+        # Se for Login/DbConfig, é um cartão centrado
+        
         w = self.winfo_width()
         h = self.winfo_height()
-        if w == 1: w, h = 800, 600
+        if w==1: w,h = 800,600
 
-        # Obter dimensões do frame atual (tamanho desejado)
-        fw = self.current_frame.winfo_reqwidth()
-        fh = self.current_frame.winfo_reqheight()
-
-        # Tamanho do cartão = frame + padding
-        card_w = fw + 40
-        card_h = fh + 40
-        
-        # Centrar
-        x1 = (w - card_w) / 2
-        y1 = (h - card_h) / 2 + 20 # Offset top bar
-        x2 = x1 + card_w
-        y2 = y1 + card_h
-        
-        # Atualizar rectangulo
         self.canvas.delete("card_bg")
-        bg_color = "#2e2e2e" if self.dark_mode else "#f0f0f0"
         
-        create_rounded_rect(self.canvas, x1, y1, x2, y2, radius=20, fill=bg_color, tags="card_bg")
-        self.canvas.tag_lower("card_bg")
-        
-        # Atualizar posição do frame
-        self.canvas.coords("current_frame", w/2, h/2 + 10)
+        try:
+            if self.current_frame_name in ["LoginFrame", "DbConfigFrame", "LoadingFrame"]:
+                # Cartão Centrado
+                fw = self.current_frame.winfo_reqwidth()
+                fh = self.current_frame.winfo_reqheight()
+                card_w = fw + 40
+                card_h = fh + 40
+                x1 = (w - card_w) / 2
+                y1 = (h - card_h) / 2
+                x2 = x1 + card_w
+                y2 = y1 + card_h
+                
+                create_rounded_rect(self.canvas, x1, y1, x2, y2, radius=15, fill="#15192b", outline="#00f0ff", width=1, tags="card_bg")
+                self.canvas.create_window(w/2, h/2, window=self.current_frame, tags="current_frame", anchor="center")
+            else:
+                # Full Screen (com margens para o menu)
+                self.canvas.create_window(0, 0, window=self.current_frame, tags="current_frame", anchor="nw", width=w, height=h)
+        except Exception as e:
+            print(f"CRITICAL ERROR in update_card_position: {e}")
+            import traceback
+            traceback.print_exc()
+
+
+    def on_frame_configure(self, event):
+        self.update_card_position()
 
     def load_images(self):
         self.img_logo_full = None
         self.img_logo_icon = None
-        
+        # (Manter código existente de load images)
         try:
-            # Obter o diretório do script atual e voltar um nível para a raiz do projeto
             script_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(script_dir)
             assets_dir = os.path.join(project_root, "assets")
-            
             logo_full_path = os.path.join(assets_dir, "logo_full.jpg")
             logo_icon_path = os.path.join(assets_dir, "logo_icon.jpg")
-            
             if os.path.exists(logo_full_path):
                 pil_img = Image.open(logo_full_path)
                 w_percent = (300 / float(pil_img.size[0]))
                 h_size = int((float(pil_img.size[1]) * float(w_percent)))
                 pil_img = pil_img.resize((300, h_size), Image.Resampling.LANCZOS)
                 self.img_logo_full = ImageTk.PhotoImage(pil_img)
-
             if os.path.exists(logo_icon_path):
                 pil_img = Image.open(logo_icon_path)
                 h_percent = (60 / float(pil_img.size[1]))
@@ -287,137 +269,145 @@ class App(tk.Tk):
                 pil_img = pil_img.resize((w_size, 60), Image.Resampling.LANCZOS)
                 self.img_logo_icon = ImageTk.PhotoImage(pil_img)
         except Exception as e:
-            print(f"Erro ao carregar imagens: {e}")
+            print(f"Erro assets: {e}")
 
     def load_config(self):
         if os.path.exists(CONFIG_FILE):
             try:
-                with open(CONFIG_FILE, "r") as f:
-                    return json.load(f)
-            except Exception:
-                pass
+                with open(CONFIG_FILE, "r") as f: return json.load(f)
+            except: pass
         return {}
 
     def save_config(self):
         try:
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(self.config, f)
-        except Exception:
-            pass
+            with open(CONFIG_FILE, "w") as f: json.dump(self.config, f)
+        except: pass
 
     def setup_theme(self):
         self.style.theme_use("clam")
         
-        if self.dark_mode:
-            bg_color = "#2e2e2e" # Cor do cartão
-            fg_color = "#ffffff"
-            entry_bg = "#404040"
-            btn_bg = "#505050"
-            active_bg = "#606060"
-            canvas_bg = "#050510"
-        else:
-            bg_color = "#f0f0f0" # Cor do cartão
-            fg_color = "#000000"
-            entry_bg = "#ffffff"
-            btn_bg = "#e0e0e0"
-            active_bg = "#d0d0d0"
-            canvas_bg = "#101030"
 
-        self.configure(bg=canvas_bg)
-        if hasattr(self, "canvas"):
-            self.canvas.configure(bg=canvas_bg)
-            # Atualizar cor do cartão atual
-            self.canvas.itemconfig("card_bg", fill=bg_color)
-
-        # Configurar estilos
-        self.style.configure(".", background=bg_color, foreground=fg_color)
-        self.style.configure("TLabel", background=bg_color, foreground=fg_color)
-        self.style.configure("TFrame", background=bg_color)
-        self.style.configure("TButton", background=btn_bg, foreground=fg_color, borderwidth=1)
-        self.style.map("TButton", background=[("active", active_bg)])
-        self.style.configure("TEntry", fieldbackground=entry_bg, foreground=fg_color)
-        self.style.configure("TRadiobutton", background=bg_color, foreground=fg_color)
-        self.style.configure("TCheckbutton", background=bg_color, foreground=fg_color)
-
-        # Atualizar frames
-        for frame in getattr(self, "frames", {}).values():
-            frame.configure(style="TFrame")
-
-        # Top Bar Widgets - tentar "transparência" combinando com o fundo do canvas
-        # Nota: TButton e TLabel não suportam bg transparente real.
-        # Vamos definir o bg deles para a cor do canvas.
-        self.lbl_welcome.configure(background=canvas_bg, foreground="#ffffff") # Sempre branco no espaço?
-        # O botão de tema precisa de contraste
-        # Se for TButton, ele usa o style. Vamos criar um style especifico para o botao de tema?
-        self.style.configure("Theme.TButton", background=btn_bg, foreground=fg_color)
-        self.btn_theme.configure(style="Theme.TButton")
+        # SPACE THEME PALETTE
+        BG_DEEP     = "#0b0d17" # Fundo geral (Canvas)
+        BG_CARD     = "#15192b" # Fundo cartões
+        BG_INPUT    = "#1f243d" # Inputs
+        ACCENT_CYAN = "#00f0ff" # Acentos Neon
+        ACCENT_ROSE = "#ff005c" # Perigo/Importante
+        TEXT_WHITE  = "#ffffff" # Texto principal (Brighter)
+        TEXT_MUTED  = "#a0b0c5" # Texto secundário (Brighter)
         
-        # Mas o label de welcome tem de ter o fundo do canvas
-        self.style.configure("Welcome.TLabel", background=canvas_bg, foreground="#ffffff")
-        self.lbl_welcome.configure(style="Welcome.TLabel")
+        self.configure(bg=BG_DEEP)
+        if hasattr(self, "canvas"):
+            self.canvas.configure(bg=BG_DEEP)
 
-
-    def toggle_theme(self):
-        self.dark_mode = not self.dark_mode
-        self.btn_theme.configure(text="☀️" if self.dark_mode else "🌙")
-        self.setup_theme()
+        # Configurar Ttk Styles
+        self.style.configure(".", background=BG_CARD, foreground=TEXT_WHITE, font=("Segoe UI", 10))
+        self.style.configure("TFrame", background=BG_CARD)
+        self.style.configure("TLabel", background=BG_CARD, foreground=TEXT_WHITE)
+        
+        # Botões Modernos
+        self.style.configure("TButton", 
+            background=BG_INPUT, 
+            foreground=ACCENT_CYAN, 
+            borderwidth=1, 
+            focuscolor=ACCENT_CYAN,
+            font=("Segoe UI", 10, "bold")
+        )
+        self.style.map("TButton", 
+            background=[("active", "#252b45"), ("pressed", ACCENT_CYAN)],
+            foreground=[("pressed", BG_DEEP)]
+        )
+        
+        # Botões de Ação (Solid) - Criar classe custom 'Action.TButton' depois
+        
+        self.style.configure("TEntry", 
+            fieldbackground=BG_INPUT, 
+            foreground=TEXT_WHITE, 
+            insertcolor=ACCENT_CYAN,
+            borderwidth=0
+        )
+        
+        self.style.configure("Treeview", 
+            background="#1a1e33",
+            fieldbackground="#1a1e33",
+            foreground=TEXT_WHITE,
+            rowheight=30,
+            borderwidth=0
+        )
+        self.style.configure("Treeview.Heading", 
+            background="#252b45", 
+            foreground=ACCENT_CYAN, 
+            font=("Segoe UI", 10, "bold")
+        )
+        self.style.map("Treeview", background=[("selected", "#2a3b55")], foreground=[("selected", ACCENT_CYAN)])
+        
+        # Notebook (Tabs)
+        self.style.configure("TNotebook", background=BG_DEEP, borderwidth=0)
+        self.style.configure("TNotebook.Tab", 
+            background=BG_CARD, 
+            foreground=TEXT_MUTED, 
+            padding=[15, 5], 
+            font=("Segoe UI", 10)
+        )
+        self.style.map("TNotebook.Tab", 
+            background=[("selected", ACCENT_CYAN)], 
+            foreground=[("selected", BG_DEEP)]
+        )
 
     def show_frame(self, name: str):
-        # Unbind previous frame event
+        print(f"DEBUG: show_frame calling {name}")
         if self.current_frame:
             self.current_frame.unbind("<Configure>")
-
+        
         self.current_frame_name = name
         self.current_frame = self.frames[name]
+        self.current_frame.tkraise()
         
-        # Bind configure event to update card size dynamically
+        self.update_card_position()
         self.current_frame.bind("<Configure>", self.on_frame_configure)
 
-        # Limpar janela atual do canvas (card e frame)
-        self.canvas.delete("current_frame")
-        self.canvas.delete("card_bg")
-        self.canvas.delete("corner_icon")
-        self.canvas.delete("logout_btn")
+    def update_card_position(self):
+        # print("DEBUG: update_card_position called") # too verbose if called on resize
+        if not self.current_frame: return
         
-        frame = self.frames[name]
-        frame.tkraise()
+        # Se for MainMenuFrame, ocupa quase tudo (menos a navbar se houver)
+        # Se for Login/DbConfig, é um cartão centrado
         
-        # Obter dimensões atuais
         w = self.winfo_width()
         h = self.winfo_height()
-        if w == 1: w, h = 800, 600 # Default startup
+        if w==1: w,h = 800,600
 
-        # Desenhar o cartão arredondado (usa update_card_position logic)
-        self.update_card_position()
+        self.canvas.delete("card_bg")
         
-        # Adicionar frame ao canvas centrado no cartão
-        self.canvas.create_window(w/2, h/2 + 10, window=frame, tags="current_frame", anchor="center")
-        
-        # Icon logic
-        if name != "LoginFrame" and self.img_logo_icon:
-             self.canvas.create_image(10, h - 10, image=self.img_logo_icon, anchor="sw", tags="corner_icon")
+        if self.current_frame_name in ["LoginFrame", "DbConfigFrame", "LoadingFrame"]:
+            # Cartão Centrado
+            fw = self.current_frame.winfo_reqwidth()
+            fh = self.current_frame.winfo_reqheight()
+            card_w = fw + 40
+            card_h = fh + 40
+            x1 = (w - card_w) / 2
+            y1 = (h - card_h) / 2
+            x2 = x1 + card_w
+            y2 = y1 + card_h
+            
+            create_rounded_rect(self.canvas, x1, y1, x2, y2, radius=15, fill="#15192b", outline="#00f0ff", width=1, tags="card_bg")
 
-        # Logout Button Logic (apenas no MainMenuFrame)
-        if name == "MainMenuFrame":
-            self.canvas.create_window(w - 10, h - 10, window=self.btn_logout, anchor="se", tags="logout_btn")
-        
-        # Atualizar UI baseada no frame
-        if name == "LoginFrame":
-            self.lbl_welcome.configure(text="")
-            self.admin_user = None
-            if self.db_conn:
-                try:
-                    self.db_conn.close()
-                except:
-                    pass
-                self.db_conn = None
+            self.canvas.create_window(w/2, h/2, window=self.current_frame, tags="current_frame", anchor="center")
+        else:
+            # Full Screen (com margens para o menu)
+            # O MainMenuFrame vai gerir o seu layout interno (Top Bar + Content)
+            # Nós só colocamos o frame a encher o ecrã
+            self.canvas.create_window(0, 0, window=self.current_frame, tags="current_frame", anchor="nw", width=w, height=h)
 
-    def set_admin_user(self, username: str):
-        self.admin_user = username
-        self.lbl_welcome.configure(text=f"Bem-vindo, {username}")
+        if hasattr(self.current_frame, "refresh_data"):
+             self.current_frame.refresh_data()
 
-    def set_db_connection(self, conn: pyodbc.Connection):
+    def set_admin_user(self, user):
+        self.admin_user = user
+
+    def set_db_connection(self, conn):
         self.db_conn = conn
+        self.depois_de_ligar_bd()
 
     def depois_de_ligar_bd(self):
         """
@@ -546,11 +536,12 @@ class App(tk.Tk):
 
 
 
-class LoadingFrame(ttk.Frame):
+class LoadingFrame(tk.Frame):
     def __init__(self, parent, controller: App):
         super().__init__(parent)
         self.controller = controller
-        self.configure(padding=40)
+        self.configure(bg="#15192b")
+        # self.configure(padding=40)
         
         self.lbl_title = ttk.Label(self, text="A Processar...", font=("Segoe UI", 16, "bold"))
         self.lbl_title.pack(pady=(0, 20))
@@ -588,34 +579,30 @@ class LoadingFrame(ttk.Frame):
         self.update_idletasks()
 
 
-class LoginFrame(ttk.Frame):
+class LoginFrame(tk.Frame):
     def __init__(self, parent, controller: App):
         super().__init__(parent)
         self.controller = controller
         
-        # Padding interno para não ficar colado às bordas do "cartão"
-        self.configure(padding=20)
-
+        
+        
         # Imagem Logo Full
         if self.controller.img_logo_full:
-            lbl_img = ttk.Label(self, image=self.controller.img_logo_full)
-            lbl_img.grid(row=0, column=0, pady=(0, 20))
+             lbl_img = tk.Label(self, image=self.controller.img_logo_full, bg="#15192b")
+             lbl_img.grid(row=0, column=0, pady=(0, 20))
 
-        titulo = ttk.Label(self, text="Login de administrador", font=("Segoe UI", 16, "bold"))
-        titulo.grid(row=1, column=0, pady=(0, 20))
+        tk.Label(self, text="Login de administrador", font=("Segoe UI", 16, "bold"), bg="#15192b", fg="#e0e6ed").grid(row=1, column=0, pady=(0, 20))
+        tk.Label(self, text="Introduza as credenciais de administrador.", font=("Segoe UI", 10), bg="#15192b", fg="#e0e6ed").grid(row=2, column=0, pady=(0, 20))
 
-        self.msg = ttk.Label(self, text="Introduza as credenciais de administrador.")
-        self.msg.grid(row=2, column=0, pady=(0, 20))
-
-        form = ttk.Frame(self)
+        form = tk.Frame(self, bg="#15192b")
         form.grid(row=3, column=0, pady=10)
 
-        ttk.Label(form, text="Utilizador:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        self.entry_user = ttk.Entry(form, width=25)
+        tk.Label(form, text="Utilizador:", bg="#15192b", fg="#e0e6ed").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        self.entry_user = tk.Entry(form, width=25, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_user.grid(row=0, column=1, sticky="w", padx=5, pady=5)
 
-        ttk.Label(form, text="Palavra-passe:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
-        self.entry_pass = ttk.Entry(form, show="*", width=25)
+        tk.Label(form, text="Palavra-passe:", bg="#15192b", fg="#e0e6ed").grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        self.entry_pass = tk.Entry(form, show="*", width=25, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_pass.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         
         # Bind Enter key
@@ -623,15 +610,17 @@ class LoginFrame(ttk.Frame):
         self.entry_pass.bind("<Return>", lambda e: self.on_login())
 
         self.save_login_var = tk.BooleanVar()
-        ttk.Checkbutton(form, text="Guardar dados", variable=self.save_login_var).grid(row=2, column=0, columnspan=2, pady=5)
+        tk.Checkbutton(form, text="Guardar dados", variable=self.save_login_var, bg="#15192b", fg="#e0e6ed", selectcolor="#15192b", activebackground="#15192b", activeforeground="#e0e6ed").grid(row=2, column=0, columnspan=2, pady=5)
 
-        btn = ttk.Button(self, text="Entrar", command=self.on_login)
+        # Botão Custom Style (simulado com tk.Button)
+        btn = tk.Button(self, text="ENTRAR", command=self.on_login, bg="#1f243d", fg="#00f0ff", font=("Segoe UI", 10, "bold"), activebackground="#00f0ff", activeforeground="#1f243d", relief="flat", padx=20, pady=5)
         btn.grid(row=4, column=0, pady=20)
         
         # Pre-fill se existir
         if "username" in self.controller.config:
             self.entry_user.insert(0, self.controller.config["username"])
             self.save_login_var.set(True)
+
 
     def on_login(self):
         username = self.entry_user.get().strip()
@@ -655,11 +644,15 @@ class LoginFrame(ttk.Frame):
             self.entry_pass.delete(0, tk.END)
 
 
-class DbConfigFrame(ttk.Frame):
+
+
+
+class DbConfigFrame(tk.Frame):
     def __init__(self, parent, controller: App):
         super().__init__(parent)
         self.controller = controller
-        self.configure(padding=20)
+        self.configure(bg="#15192b")
+        # self.configure(padding=20)
 
         # Carregar defaults ou config
         cfg = self.controller.config.get("db", {})
@@ -672,88 +665,81 @@ class DbConfigFrame(ttk.Frame):
         self.ip_var = tk.StringVar(value=cfg.get("ip", "localhost"))
         self.port_var = tk.StringVar(value=cfg.get("port", "1433"))
 
-        titulo = ttk.Label(self, text="Ligação à base de dados", font=("Segoe UI", 16, "bold"))
-        titulo.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        tk.Label(self, text="Ligação à base de dados", font=("Segoe UI", 16, "bold"), bg="#15192b", fg="#e0e6ed").grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
         # Grid para o formulário
-        self.form = ttk.Frame(self)
+        self.form = tk.Frame(self, bg="#15192b")
         self.form.grid(row=1, column=0)
 
         row = 0
-        row = 0
-        self.lbl_servidor = ttk.Label(self.form, text="Servidor:")
+        self.lbl_servidor = tk.Label(self.form, text="Servidor:", bg="#15192b", fg="#e0e6ed")
         self.lbl_servidor.grid(row=row, column=0, sticky="e", padx=10, pady=5)
-        self.entry_servidor = ttk.Entry(self.form, textvariable=self.servidor_var, width=30)
+        self.entry_servidor = tk.Entry(self.form, textvariable=self.servidor_var, width=30, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_servidor.grid(row=row, column=1, sticky="w", padx=10, pady=5)
 
         # Campos IP e Porta (inicialmente ocultos ou não, dependendo do modo)
-        self.lbl_ip = ttk.Label(self.form, text="IP:")
+        self.lbl_ip = tk.Label(self.form, text="IP:", bg="#15192b", fg="#e0e6ed")
         self.lbl_ip.grid(row=row, column=0, sticky="e", padx=10, pady=5)
-        self.entry_ip = ttk.Entry(self.form, textvariable=self.ip_var, width=20)
+        self.entry_ip = tk.Entry(self.form, textvariable=self.ip_var, width=20, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_ip.grid(row=row, column=1, sticky="w", padx=10, pady=5)
 
-        # Porta na mesma linha do IP ou linha abaixo? Vamos por linha abaixo para ser mais limpo ou ao lado?
-        # Vamos por numa nova row para simplificar, ou usar um frame para IP e Porta na mesma linha.
-        # Vou usar um frame para IP e Porta ficarem na mesma "linha lógica" do formulário se quiser, 
-        # mas como estou a substituir o "Servidor", posso usar duas linhas.
-        # O user pediu "Pedir o IP e a porta".
-        
-        # Vou colocar IP numa linha e Porta noutra para ser consistente com o layout vertical.
         row += 1
-        self.lbl_port = ttk.Label(self.form, text="Porta:")
+        self.lbl_port = tk.Label(self.form, text="Porta:", bg="#15192b", fg="#e0e6ed")
         self.lbl_port.grid(row=row, column=0, sticky="e", padx=10, pady=5)
-        self.entry_port = ttk.Entry(self.form, textvariable=self.port_var, width=10)
+        self.entry_port = tk.Entry(self.form, textvariable=self.port_var, width=10, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_port.grid(row=row, column=1, sticky="w", padx=10, pady=5)
 
         row += 1
-        ttk.Label(self.form, text="Base de dados:").grid(row=row, column=0, sticky="e", padx=10, pady=5)
-        ttk.Entry(self.form, textvariable=self.base_dados_var, width=30).grid(
+        tk.Label(self.form, text="Base de dados:", bg="#15192b", fg="#e0e6ed").grid(row=row, column=0, sticky="e", padx=10, pady=5)
+        tk.Entry(self.form, textvariable=self.base_dados_var, width=30, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat").grid(
             row=row, column=1, sticky="w", padx=10, pady=5
         )
 
         row += 1
-        ttk.Label(self.form, text="Autenticação:").grid(row=row, column=0, sticky="e", padx=10, pady=5)
+        tk.Label(self.form, text="Autenticação:", bg="#15192b", fg="#e0e6ed").grid(row=row, column=0, sticky="e", padx=10, pady=5)
         
-        auth_frame = ttk.Frame(self.form)
+        auth_frame = tk.Frame(self.form, bg="#15192b")
         auth_frame.grid(row=row, column=1, sticky="w", padx=10, pady=5)
 
-        ttk.Radiobutton(
+        tk.Radiobutton(
             auth_frame,
             text="Windows",
             variable=self.auth_mode_var,
             value="windows",
             command=self.on_auth_mode_change,
+            bg="#15192b", fg="#e0e6ed", selectcolor="#15192b", activebackground="#15192b", activeforeground="#e0e6ed"
         ).pack(side="left", padx=(0, 10))
         
-        ttk.Radiobutton(
+        tk.Radiobutton(
             auth_frame,
             text="SQL Server",
             variable=self.auth_mode_var,
             value="sql",
             command=self.on_auth_mode_change,
+            bg="#15192b", fg="#e0e6ed", selectcolor="#15192b", activebackground="#15192b", activeforeground="#e0e6ed"
         ).pack(side="left")
 
         # Widgets de user/pass (guardamos referências para esconder/mostrar)
         row += 1
-        self.lbl_user_bd = ttk.Label(self.form, text="Utilizador BD:")
+        self.lbl_user_bd = tk.Label(self.form, text="Utilizador BD:", bg="#15192b", fg="#e0e6ed")
         self.lbl_user_bd.grid(row=row, column=0, sticky="e", padx=10, pady=5)
         
-        self.entry_user_bd = ttk.Entry(self.form, textvariable=self.user_var, width=25)
+        self.entry_user_bd = tk.Entry(self.form, textvariable=self.user_var, width=25, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_user_bd.grid(row=row, column=1, sticky="w", padx=10, pady=5)
 
         row += 1
-        self.lbl_pass_bd = ttk.Label(self.form, text="Palavra-passe BD:")
+        self.lbl_pass_bd = tk.Label(self.form, text="Palavra-passe BD:", bg="#15192b", fg="#e0e6ed")
         self.lbl_pass_bd.grid(row=row, column=0, sticky="e", padx=10, pady=5)
         
-        self.entry_pass_bd = ttk.Entry(self.form, textvariable=self.pass_var, show="*", width=25)
+        self.entry_pass_bd = tk.Entry(self.form, textvariable=self.pass_var, show="*", width=25, bg="#1f243d", fg="#e0e6ed", insertbackground="#00f0ff", relief="flat")
         self.entry_pass_bd.grid(row=row, column=1, sticky="w", padx=10, pady=5)
 
         # Botões
-        btn_frame = ttk.Frame(self)
+        btn_frame = tk.Frame(self, bg="#15192b")
         btn_frame.grid(row=2, column=0, pady=20)
 
-        ttk.Button(btn_frame, text="Voltar", command=self.on_back).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="Testar ligação", command=self.on_testar_ligacao).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="VOLTAR", command=self.on_back, bg="#1f243d", fg="#e0e6ed", relief="flat", padx=15, pady=5).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="TESTAR LIGAÇÃO", command=self.on_testar_ligacao, bg="#1f243d", fg="#00f0ff", font=("Segoe UI", 10, "bold"), relief="flat", padx=15, pady=5).pack(side="left", padx=5)
 
         # Estado inicial
         self.on_auth_mode_change()
@@ -866,416 +852,439 @@ class DbConfigFrame(ttk.Frame):
         self.controller.depois_de_ligar_bd()
 
 
-class MainMenuFrame(ttk.Frame):
+class MainMenuFrame(tk.Frame):
+    """
+    Main Shell for the logged-in experience.
+    Contains the Top Navigation Bar and a Content Area.
+    """
     def __init__(self, parent, controller: App):
         super().__init__(parent)
         self.controller = controller
-        self.configure(padding=20)
+        self.configure(bg="#0b0d17")
+        
+        # Grid layout: Row 0 = Navbar, Row 1 = Content
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
-        # Título no topo do cartão
-        titulo = ttk.Label(self, text="Monitorização de NEOs", font=("Segoe UI", 16, "bold"))
-        titulo.pack(pady=(0, 5))
+        # --- Top Nav Bar ---
+        self.navbar = ttk.Frame(self, style="TFrame")
+        self.navbar.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+        
+        # Logo/Title Area
+        lbl_brand = ttk.Label(self.navbar, text="🚀 NEO MISSION CONTROL", font=("Segoe UI", 12, "bold"), foreground="#00f0ff")
+        lbl_brand.pack(side="left", padx=20, pady=10)
+        
+        # Navigation Buttons
+        self.nav_btns_frame = ttk.Frame(self.navbar)
+        self.nav_btns_frame.pack(side="left", padx=40)
+        
+        self.create_nav_btn("Dashboard", "dashboard")
+        self.create_nav_btn("Pesquisa", "search")
+        self.create_nav_btn("Inserção (Wizard)", "wizard")
+        self.create_nav_btn("Alertas", "alertas")
+        self.create_nav_btn("Monitorização", "monitor")
+        
+        # User / Actions Area
+        user_frame = ttk.Frame(self.navbar)
+        user_frame.pack(side="right", padx=20)
+        
+        self.lbl_user = ttk.Label(user_frame, text="Commander", font=("Segoe UI", 10))
+        self.lbl_user.pack(side="left", padx=10)
+        
+        btn_logout = ttk.Button(user_frame, text="LOGOUT", command=self.on_logout, width=8)
+        btn_logout.pack(side="left")
 
-        subtitulo = ttk.Label(self, text="Menu Principal")
-        subtitulo.pack(pady=(0, 15))
+        # --- Main Content Area ---
+        self.content_area = ttk.Frame(self)
+        self.content_area.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
+        
+        # Dictionary of sub-frames
+        self.sub_frames = {}
+        for F in (DashboardFrame, SearchFrame, WizardFrame):
+            page_name = F.__name__
+            frame = F(parent=self.content_area, controller=self.controller)
+            self.sub_frames[page_name] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
+        
+        # Configure content area grid
+        self.content_area.columnconfigure(0, weight=1)
+        self.content_area.rowconfigure(0, weight=1)
+        
+        self.current_sub_frame = None
+        self.show_sub_frame("DashboardFrame")
 
-        # Frame principal com 2 colunas: sidebar (esq) + conteúdo (dir)
-        main = ttk.Frame(self)
-        main.pack(fill="both", expand=True)
+    def create_nav_btn(self, text, code):
+        btn = ttk.Button(self.nav_btns_frame, text=text, command=lambda c=code: self.navigate_to(c))
+        btn.pack(side="left", padx=5)
 
-        main.columnconfigure(0, weight=0)   # sidebar
-        main.columnconfigure(1, weight=1)   # conteúdo
-        main.rowconfigure(0, weight=1)
+    def navigate_to(self, code):
+        if code == "dashboard": self.show_sub_frame("DashboardFrame")
+        elif code == "search": self.show_sub_frame("SearchFrame")
+        elif code == "wizard": self.show_sub_frame("WizardFrame")
+        elif code == "alertas": 
+             # For legacy pages, we still use the old show_frame method if possible, 
+             # OR we should migrate them to be subframes.
+             # For now, let's keep them accessible via the controller if they exist as MainFrames,
+             # BUT here we are inside MainMenuFrame. 
+             # Ideally we should refrain from switching the ROOT frame unless necessary.
+             # Let's placeholder this:
+             messagebox.showinfo("Em construção", "A secção de Alertas está a ser migrada.")
+        elif code == "monitor": 
+             messagebox.showinfo("Em construção", "A secção de Monitorização está a ser migrada.")
 
-        # Sidebar à esquerda
-        sidebar = ttk.Frame(main)
-        sidebar.grid(row=0, column=0, sticky="nsw", padx=(0, 20))
+    def show_sub_frame(self, name):
+        if name in self.sub_frames:
+            frame = self.sub_frames[name]
+            frame.tkraise()
+            self.current_sub_frame = frame
+            # Refresh data if needed
+            if hasattr(frame, 'refresh_data'):
+                frame.refresh_data()
 
-        # Área de conteúdo à direita
-        content = ttk.Frame(main)
-        content.grid(row=0, column=1, sticky="nsew")
-        self.content_frame = content
+    def on_logout(self):
+        self.controller.show_frame("LoginFrame")
 
-        # Botões de navegação
-        botoes = [
-            ("🏠  Home", self.on_home),
-            ("📥  Aplicação de Inserção", self.on_insercao),
-            ("⚠️  Aplicação de Alertas", self.on_alertas),
-            ("📊  Aplicação de Monitorização", self.on_monitorizacao),
-            ("🔎  Consultas gerais", self.on_consultas),
-            ("⚙️  Configurar Utilizador", self.on_user_config),
-            ("ℹ️  Créditos", self.on_creditos),
-        ]
+    def refresh_data(self):
+        try:
+             if self.current_sub_frame and hasattr(self.current_sub_frame, "refresh_data"):
+                  self.current_sub_frame.refresh_data()
+        except Exception as e:
+             print(f"Erro no MainMenuFrame.refresh_data: {e}")
 
-        for text, cmd in botoes:
-            ttk.Button(sidebar, text=text, width=28, command=cmd).pack(fill="x", pady=4)
 
-        # Widgets de conteúdo (título + texto + zona de links)
-        self.content_title = ttk.Label(content, text="", font=("Segoe UI", 14, "bold"))
-        self.content_title.pack(anchor="w", pady=(0, 10))
+class DashboardFrame(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
+        
+        self.lbl_welcome = ttk.Label(self, text="Vision General", font=("Segoe UI", 16, "bold"))
+        self.lbl_welcome.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 20))
+        
+        self.card_neos = self.create_kpi_card(0, "Total NEOs", "0")
+        self.card_pha = self.create_kpi_card(1, "PHAs Identificados", "0", color="#ff005c")
+        self.card_alerts = self.create_kpi_card(2, "Alertas Ativos", "0", color="#ffbe0b")
+        
+        lbl_recent = ttk.Label(self, text="Atividade Recente", font=("Segoe UI", 12, "bold"))
+        lbl_recent.grid(row=2, column=0, sticky="w", pady=(20, 10))
+        
+        cols = ("Nome", "Diametro", "H_Mag", "Obs")
+        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=8)
+        for c in cols: self.tree.heading(c, text=c)
+        self.tree.grid(row=3, column=0, columnspan=3, sticky="nsew")
 
-        self.content_body = ttk.Label(
-            content,
-            text="",
-            justify="left",
-            wraplength=380,
-        )
-        self.content_body.pack(anchor="nw")
+    def create_kpi_card(self, col, title, value, color="#00f0ff"):
+        frame = ttk.Frame(self, style="TFrame")
+        frame.grid(row=1, column=col, sticky="ew", padx=10)
+        
+        lbl_title = ttk.Label(frame, text=title.upper(), foreground="#8b9bb4", font=("Segoe UI", 9))
+        lbl_title.pack(anchor="w")
+        
+        lbl_val = ttk.Label(frame, text=value, foreground=color, font=("Segoe UI", 24, "bold"))
+        lbl_val.pack(anchor="w")
+        return lbl_val
 
-        self.links_frame = ttk.Frame(content)
-        self.links_frame.pack(anchor="nw", pady=(10, 0))
+    def refresh_data(self):
+        conn = self.controller.db_conn
+        if not conn: return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM Asteroide WHERE flag_neo=1")
+            neo_count = cur.fetchone()[0]
+            self.card_neos.config(text=str(neo_count))
+            
+            cur.execute("SELECT COUNT(*) FROM Asteroide WHERE flag_pha=1")
+            pha_count = cur.fetchone()[0]
+            self.card_pha.config(text=str(pha_count))
+            
+            cur.execute("SELECT COUNT(*) FROM Alerta WHERE ativo=1")
+            alert_count = cur.fetchone()[0]
+            self.card_alerts.config(text=str(alert_count))
+            cur.close()
+            
+            cols, rows = consultas.fetch_ultimos_asteroides(conn)
+            self.tree.delete(*self.tree.get_children())
+            for r in rows:
+                self.tree.insert("", "end", values=(
+                    r.get('nome_completo', 'N/A'), 
+                    r.get('diametro_km', 'N/A'), 
+                    r.get('H_mag', 'N/A'), 
+                    f"ID: {r.get('id_asteroide')}"
+                ))
+        except Exception as e:
+            print(f"Erro no dashboard: {e}")
 
-        # Frame DINÂMICO onde vamos pôr tabelas, notebooks, etc.
-        self.data_frame = ttk.Frame(content)
-        self.data_frame.pack(fill="both", expand=True, pady=(10, 0))
 
-        # Mostrar página inicial ao entrar no menu
-        self.mostrar_pagina("home")
+class SearchFrame(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        
+        filters_frame = ttk.Frame(self)
+        filters_frame.pack(fill="x", pady=(0, 10))
+        
+        ttk.Label(filters_frame, text="Nome/Desig:").pack(side="left", padx=5)
+        self.ent_name = ttk.Entry(filters_frame, width=15)
+        self.ent_name.pack(side="left", padx=5)
+        
+        ttk.Label(filters_frame, text="Perigo:").pack(side="left", padx=5)
+        self.cb_danger = ttk.Combobox(filters_frame, values=["Todos", "NEO", "PHA"], state="readonly", width=10)
+        self.cb_danger.current(0)
+        self.cb_danger.pack(side="left", padx=5)
+        
+        ttk.Label(filters_frame, text="Ordenar:").pack(side="left", padx=5)
+        self.cb_sort = ttk.Combobox(filters_frame, values=["Nome", "Tamanho (Maior)", "Tamanho (Menor)", "Perigo (Mais próximo)"], state="readonly", width=15)
+        self.cb_sort.current(0)
+        self.cb_sort.pack(side="left", padx=5)
+        
+        btn_search = ttk.Button(filters_frame, text="🔍 Pesquisar", command=lambda: self.do_search(reset_page=True))
+        btn_search.pack(side="left", padx=10)
+        
+        self.ent_name.bind("<KeyRelease>", lambda e: self.do_search(reset_page=True))
+        self.cb_danger.bind("<<ComboboxSelected>>", lambda e: self.do_search(reset_page=True))
+        self.cb_sort.bind("<<ComboboxSelected>>", lambda e: self.do_search(reset_page=True))
+        
+        # Initial search
+        self.do_search()
+        
+        cols = ("ID", "Nome", "Diametro (km)", "H (mag)", "MOID (au)", "NEO", "PHA")
+        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=15)
+        for c in cols: self.tree.heading(c, text=c)
+        self.tree.column("ID", width=50)
+        self.tree.pack(fill="both", expand=True)
+        
+        self.tree.tag_configure("dangerous", foreground="#ff005c")
+        self.tree.tag_configure("warning", foreground="#ffbe0b")
 
-    # --------- helpers internos ---------
+        # Paginação Controls
+        nav_frame = ttk.Frame(self)
+        nav_frame.pack(fill="x", pady=10)
 
-    def set_content(self, titulo: str, texto: str, links: list[tuple[str, str]] | None = None):
-        """Actualiza o título, o texto e (opcionalmente) links clicáveis."""
-        self.content_title.config(text=titulo)
-        self.content_body.config(text=texto)
+        self.btn_prev_page = ttk.Button(nav_frame, text="< Página Anterior", command=self.prev_page, state="disabled")
+        self.btn_prev_page.pack(side="left", padx=10)
 
-        # limpar links anteriores
-        for child in self.links_frame.winfo_children():
-            child.destroy()
+        self.lbl_page = ttk.Label(nav_frame, text="Página 1")
+        self.lbl_page.pack(side="left", padx=10)
 
-        if links:
-            ttk.Label(
-                self.links_frame,
-                text="Fontes externas:",
-                font=("Segoe UI", 10, "bold"),
-            ).pack(anchor="w", pady=(0, 3))
+        self.btn_next_page = ttk.Button(nav_frame, text="Próxima Página >", command=self.next_page)
+        self.btn_next_page.pack(side="left", padx=10)
 
-            for label, url in links:
-                link_lbl = ttk.Label(
-                    self.links_frame,
-                    text=f"• {label}",
-                    foreground="#4ea3ff",
-                    cursor="hand2",
-                )
-                link_lbl.pack(anchor="w")
-                link_lbl.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
+        self.current_page = 1
+        self.page_size = 50
 
-        # limpar também a zona dinâmica sempre que se muda de página
-        for child in self.data_frame.winfo_children():
-          child.destroy()
+    def prev_page(self):
+        if self.current_page > 1:
+            self.current_page -= 1
+            self.do_search()
 
-    def mostrar_pagina(self, pagina: str):
-        """Páginas simples que só usam texto."""
-        if pagina == "home":
-            titulo = "Bem-vindo à Monitorização de NEOs"
-            texto = (
-                "Esta é a página inicial do sistema.\n\n"
-                "A aplicação permite:\n"
-                "  • Importar dados de asteroides a partir do ficheiro neo.csv;\n"
-                "  • Consultar NEOs, PHAs e aproximações próximas;\n"
-                "  • Ver e gerir alertas activos;\n"
-                "  • Aceder a estatísticas e consultas gerais sobre a base de dados.\n\n"
-                "Use o menu do lado esquerdo para navegar entre as diferentes áreas."
+    def next_page(self):
+        self.current_page += 1
+        self.do_search()
+
+    def do_search(self, reset_page=False):
+        try:
+            if reset_page:
+                self.current_page = 1
+
+            conn = self.controller.db_conn
+            if not conn: return
+            
+            name = self.ent_name.get().strip()
+            danger = self.cb_danger.get()
+            sort_by = self.cb_sort.get()
+            
+            cols, rows = consultas.fetch_filtered_asteroids(
+                conn, 
+                name=name, 
+                danger_level=danger, 
+                sort_by=sort_by,
+                page=self.current_page,
+                page_size=self.page_size
             )
+            
+            self.tree.delete(*self.tree.get_children())
+            
+            if not rows:
+                 self.lbl_page.config(text=f"Página {self.current_page} (Sem resultados)")
+            else:
+                 self.lbl_page.config(text=f"Página {self.current_page}")
 
-            links = [
-                ("Portal NEO da ESA", "https://neo.ssa.esa.int/"),
-                ("NASA Eyes on Asteroids", "https://eyes.nasa.gov/apps/asteroids/#/home"),
-                ("NASA/JPL Small-Body Database", "https://ssd.jpl.nasa.gov/tools/sb_ident.html#/"),
-                ("Minor Planet Center - MPCORB.DAT", "https://minorplanetcenter.net/iau/info/MPCORB.DAT"),
-                ("Kaggle - Prediction of Asteroid Diameter",
-                 "https://www.kaggle.com/datasets/basu369victor/prediction-of-asteroid-diameter"),
-            ]
+            # Update buttons state
+            if self.current_page == 1:
+                self.btn_prev_page.config(state="disabled")
+            else:
+                self.btn_prev_page.config(state="normal")
+            
+            if len(rows) < self.page_size:
+                self.btn_next_page.config(state="disabled")
+            else:
+                self.btn_next_page.config(state="normal")
 
-        elif pagina == "insercao":
-            titulo = "Aplicação de Inserção"
-            texto = (
-                "Nesta secção será possível:\n"
-                "  • Seleccionar o ficheiro neo.csv fornecido pelo docente;\n"
-                "  • Validar e importar os dados para as tabelas da base de dados;\n"
-                "  • No futuro, editar registos e guardar alterações.\n\n"
-                "Por agora esta página apresenta apenas a descrição da funcionalidade."
-            )
-            links = None
 
-        elif pagina == "creditos":
-            titulo = "Créditos"
-            texto = (
-                "Trabalho realizado por:\n"
-                "  • Bernardete Coelho (a53654)\n"
-                "  • Carlos Farinha (a53491)\n\n"
-                "Unidade Curricular: Bases de Dados\n"
-                "Licenciatura em Engenharia Informática\n"
-                "Universidade da Beira Interior."
-            )
-            links = None
+            for r in rows:
+                tag = ""
+                if r['flag_pha'] == 1: tag = "dangerous"
+                elif r['flag_neo'] == 1: tag = "warning"
+                
+                self.tree.insert("", "end", values=(
+                    r.get('id_asteroide', 'N/A'), 
+                    r.get('nome_completo', 'N/A'), 
+                    r.get('diametro_km') if r.get('diametro_km') is not None else "N/A", 
+                    r.get('H_mag') if r.get('H_mag') is not None else "N/A", 
+                    r.get('moid_ua') if r.get('moid_ua') is not None else "N/A", 
+                    "SIM" if r.get('flag_neo') else "", 
+                    "SIM" if r.get('flag_pha') else ""
+                ), tags=(tag,))
+        except Exception as e:
+            print(f"Erro no SearchFrame.do_search: {e}")
+            import traceback
+            traceback.print_exc()
+            
 
-        else:
-            titulo = "Página desconhecida"
-            texto = "A página solicitada não está definida."
-            links = None
 
-        self.set_content(titulo, texto, links)
 
-    # Helper para Treeviews
-    def _fill_tree(self, tree: ttk.Treeview, cols, rows):
-        tree["columns"] = cols
-        tree["show"] = "headings"
-
-        for c in cols:
-            tree.heading(c, text=c)
-            tree.column(c, anchor="center", width=100, stretch=True)
-
-        for item in tree.get_children():
-            tree.delete(item)
-
-        for row in rows:
-            tree.insert("", "end", values=[row[c] for c in cols])
-
-    def _require_connection(self):
-        """Verifica se existe ligação activa à BD (no controller)."""
-        conn = getattr(self.controller, "db_conn", None)
-        if conn is None:
-            messagebox.showerror("Base de dados", "Não existe ligação activa à base de dados.")
-            return None
-        return conn
-
-    # --------- PÁGINAS COM DADOS (Alertas / Monitorização / Consultas) ---------
-
-    def show_alertas_page(self):
-        conn = self._require_connection()
-        if conn is None:
-            return
-
-        self.set_content(
-            "Aplicação de Alertas",
-            "Aqui são apresentados os alertas activos sobre aproximações "
-            "próximas e outras situações críticas.\n\n"
-            "A lista é obtida a partir da view vw_Alertas_Ativos_Detalhe e o "
-            "resumo por nível usa a view vw_ResumoAlertasPorNivel."
-        )
-
-        frame = self.data_frame
-
-        # Barra com botões
-        toolbar = ttk.Frame(frame)
-        toolbar.pack(fill="x", pady=(0, 5))
-
-        tree_alertas = ttk.Treeview(frame, height=10)
-        tree_alertas.pack(fill="both", expand=True, pady=(5, 10))
-
-        tree_resumo = ttk.Treeview(frame, height=4)
-        tree_resumo.pack(fill="x", expand=False, pady=(2, 0))
-
-        btn_atualizar = ttk.Button(
-            toolbar,
-            text="Atualizar lista de alertas",
-            command=lambda: self._load_alertas(tree_alertas)
-        )
-        btn_atualizar.pack(side="left")
-
-        btn_resumo = ttk.Button(
-            toolbar,
-            text="Mostrar resumo por nível",
-            command=lambda: self._load_resumo_nivel(tree_resumo)
-        )
-        btn_resumo.pack(side="left", padx=(10, 0))
-
-        # Carregar dados iniciais
-        self._load_alertas(tree_alertas)
-        self._load_resumo_nivel(tree_resumo)
-
-    def _load_alertas(self, tree: ttk.Treeview):
-        conn = self._require_connection()
-        if conn is None:
-            return
-        cols, rows = consultas.fetch_alertas_ativos(conn)
-        self._fill_tree(tree, cols, rows)
-
-    def _load_resumo_nivel(self, tree: ttk.Treeview):
-        conn = self._require_connection()
-        if conn is None:
-            return
-        cols, rows = consultas.fetch_resumo_alertas_nivel(conn)
-        self._fill_tree(tree, cols, rows)
-
-    def show_monitorizacao_page(self):
-        conn = self._require_connection()
-        if conn is None:
-            return
-
-        self.set_content(
-            "Aplicação de Monitorização",
-            "Nesta secção são apresentadas algumas estatísticas e indicadores, "
-            "baseados nas vistas de monitorização da base de dados."
-        )
-
-        frame = self.data_frame
-
-        notebook = ttk.Notebook(frame)
-        notebook.pack(fill="both", expand=True)
-
-        # --- Tab 1: Ranking PHA ---
-        tab_pha = ttk.Frame(notebook)
-        notebook.add(tab_pha, text="Ranking PHAs")
-
-        tree_pha = ttk.Treeview(tab_pha, height=12)
-        tree_pha.pack(fill="both", expand=True, padx=5, pady=5)
-
-        btn_pha = ttk.Button(
-            tab_pha,
-            text="Atualizar ranking",
-            command=lambda: self._load_ranking_pha(tree_pha)
-        )
-        btn_pha.pack(anchor="e", padx=5, pady=(0, 5))
-
-        # --- Tab 2: Centros mais activos ---
-        tab_centros = ttk.Frame(notebook)
-        notebook.add(tab_centros, text="Centros de observação")
-
-        tree_centros = ttk.Treeview(tab_centros, height=12)
-        tree_centros.pack(fill="both", expand=True, padx=5, pady=5)
-
-        btn_centros = ttk.Button(
-            tab_centros,
-            text="Atualizar centros",
-            command=lambda: self._load_centros_ativos(tree_centros)
-        )
-        btn_centros.pack(anchor="e", padx=5, pady=(0, 5))
-
-        # --- Tab 3: Aproximações críticas ---
-        tab_aprox = ttk.Frame(notebook)
-        notebook.add(tab_aprox, text="Aprox. críticas")
-
-        tree_aprox = ttk.Treeview(tab_aprox, height=12)
-        tree_aprox.pack(fill="both", expand=True, padx=5, pady=5)
-
-        btn_aprox = ttk.Button(
-            tab_aprox,
-            text="Atualizar aproximações",
-            command=lambda: self._load_aproximacoes_criticas(tree_aprox)
-        )
-        btn_aprox.pack(anchor="e", padx=5, pady=(0, 5))
-
-        # Carregar dados iniciais
-        self._load_ranking_pha(tree_pha)
-        self._load_centros_ativos(tree_centros)
-        self._load_aproximacoes_criticas(tree_aprox)
-
-    def _load_ranking_pha(self, tree: ttk.Treeview):
-        conn = self._require_connection()
-        if conn is None:
-            return
-        cols, rows = consultas.fetch_ranking_pha(conn, limite=15)
-        self._fill_tree(tree, cols, rows)
-
-    def _load_centros_ativos(self, tree: ttk.Treeview):
-        conn = self._require_connection()
-        if conn is None:
-            return
-        cols, rows = consultas.fetch_centros_com_mais_observacoes(conn, limite=15)
-        self._fill_tree(tree, cols, rows)
-
-    def _load_aproximacoes_criticas(self, tree: ttk.Treeview):
-        conn = self._require_connection()
-        if conn is None:
-            return
-        cols, rows = consultas.fetch_proximas_aproximacoes_criticas(conn, limite=30)
-        self._fill_tree(tree, cols, rows)
-
-    def show_consultas_page(self):
-        conn = self._require_connection()
-        if conn is None:
-            return
-
-        self.set_content(
-            "Consultas gerais",
-            "Nesta secção pode efectuar algumas consultas gerais à base de dados, "
-            "usando vistas pré-definidas."
-        )
-
-        frame = self.data_frame
-
-        # Mapear nomes amigáveis -> função de consulta
-        self._consultas_map = {
-            "Últimos asteroides detectados": consultas.fetch_ultimos_asteroides,
-            "NEOs": consultas.fetch_asteroides_neo,
-            "PHAs": consultas.fetch_asteroides_pha,
-            "NEOs e PHAs": consultas.fetch_asteroides_neo_e_pha,
+class WizardFrame(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        
+        self.steps = ["1. Contexto", "2. Asteroide", "3. Observação"]
+        self.current_step = 0
+        
+        self.lbl_step = ttk.Label(self, text=self.steps[0], font=("Segoe UI", 12, "bold"), foreground="#00f0ff")
+        self.lbl_step.pack(pady=10)
+        
+        self.step_frame = ttk.Frame(self)
+        self.step_frame.pack(fill="both", expand=True, padx=50)
+        
+        self.nav_frame = ttk.Frame(self)
+        self.nav_frame.pack(pady=20)
+        
+        self.btn_prev = ttk.Button(self.nav_frame, text="< Anterior", command=self.prev_step, state="disabled")
+        self.btn_prev.pack(side="left", padx=10)
+        
+        self.btn_next = ttk.Button(self.nav_frame, text="Próximo >", command=self.next_step)
+        self.btn_next.pack(side="left", padx=10)
+        
+        self.vars = {
+            "centro_cod": tk.StringVar(),
+            "centro_nome": tk.StringVar(),
+            "centro_pais": tk.StringVar(),
+            "equip_nome": tk.StringVar(),
+            "equip_tipo": tk.StringVar(),
+            "astro_nome": tk.StringVar(),
+            "soft_nome": tk.StringVar(),
+            "ast_pdes": tk.StringVar(),
+            "ast_nome": tk.StringVar(),
+            "ast_neo": tk.BooleanVar(),
+            "ast_pha": tk.BooleanVar(),
+            "ast_h": tk.DoubleVar(value=0.0),
+            "obs_data": tk.StringVar(value="2025-01-01 12:00:00"),
+            "obs_modo": tk.StringVar(value="MANUAL"),
+            "obs_notas": tk.StringVar()
         }
+        
+        self.render_step_1()
 
-        topo = ttk.Frame(frame)
-        topo.pack(fill="x", pady=(0, 5))
+    def clear_frame(self):
+        for widget in self.step_frame.winfo_children():
+            widget.destroy()
 
-        lbl = ttk.Label(topo, text="Escolha uma consulta:")
-        lbl.pack(side="left")
+    def render_step_1(self):
+        self.clear_frame()
+        f = self.step_frame
+        
+        ttk.Label(f, text="Centro Observação (Código/Nome/País)").grid(row=0, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["centro_cod"], width=10).grid(row=0, column=1)
+        ttk.Entry(f, textvariable=self.vars["centro_nome"], width=30).grid(row=0, column=2)
+        ttk.Entry(f, textvariable=self.vars["centro_pais"], width=15).grid(row=0, column=3)
+        
+        ttk.Label(f, text="Equipamento (Nome/Tipo)").grid(row=1, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["equip_nome"], width=30).grid(row=1, column=1, columnspan=2, sticky="ew")
+        ttk.Entry(f, textvariable=self.vars["equip_tipo"], width=15).grid(row=1, column=3)
+        
+        ttk.Label(f, text="Astrónomo").grid(row=2, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["astro_nome"], width=40).grid(row=2, column=1, columnspan=3, sticky="w")
+        
+        ttk.Label(f, text="Software").grid(row=3, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["soft_nome"], width=40).grid(row=3, column=1, columnspan=3, sticky="w")
 
-        self._combo_consultas = ttk.Combobox(
-            topo,
-            values=list(self._consultas_map.keys()),
-            state="readonly",
-            width=35
-        )
-        self._combo_consultas.pack(side="left", padx=(5, 5))
-        self._combo_consultas.current(0)
+    def render_step_2(self):
+        self.clear_frame()
+        f = self.step_frame
+        
+        ttk.Label(f, text="Designação (PDES)").grid(row=0, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["ast_pdes"]).grid(row=0, column=1, sticky="w")
+        
+        ttk.Label(f, text="Nome Completo").grid(row=1, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["ast_nome"]).grid(row=1, column=1, sticky="w")
+        
+        ttk.Label(f, text="Magnitude (H)").grid(row=2, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["ast_h"]).grid(row=2, column=1, sticky="w")
+        
+        ttk.Checkbutton(f, text="É NEO?", variable=self.vars["ast_neo"]).grid(row=3, column=1, sticky="w")
+        ttk.Checkbutton(f, text="É PHA?", variable=self.vars["ast_pha"]).grid(row=4, column=1, sticky="w")
 
-        btn_exec = ttk.Button(
-            topo,
-            text="Executar",
-            command=self._executar_consulta_selecionada
-        )
-        btn_exec.pack(side="left")
+    def render_step_3(self):
+        self.clear_frame()
+        f = self.step_frame
+        
+        ttk.Label(f, text="Data/Hora Observação (YYYY-MM-DD HH:MM:SS)").grid(row=0, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["obs_data"], width=25).grid(row=0, column=1, sticky="w")
+        
+        ttk.Label(f, text="Modo").grid(row=1, column=0, pady=5, sticky="e")
+        ttk.Combobox(f, textvariable=self.vars["obs_modo"], values=["MANUAL", "CCD", "VISUAL"]).grid(row=1, column=1, sticky="w")
+        
+        ttk.Label(f, text="Notas").grid(row=2, column=0, pady=5, sticky="e")
+        ttk.Entry(f, textvariable=self.vars["obs_notas"], width=50).grid(row=2, column=1, sticky="w")
 
-        # Treeview para mostrar resultados
-        self._tree_consultas = ttk.Treeview(frame, height=15)
-        self._tree_consultas.pack(fill="both", expand=True, pady=(5, 0))
+    def prev_step(self):
+        if self.current_step > 0:
+            self.current_step -= 1
+            self.update_ui()
 
-        # Executa a primeira por omissão
-        self._executar_consulta_selecionada()
+    def next_step(self):
+        if self.current_step < len(self.steps) - 1:
+            self.current_step += 1
+            self.update_ui()
+        else:
+            self.submit()
 
-    def _executar_consulta_selecionada(self):
-        conn = self._require_connection()
-        if conn is None:
-            return
-        nome = self._combo_consultas.get()
-        func = self._consultas_map.get(nome)
-        if not func:
-            messagebox.showwarning("Consultas", "Selecção de consulta inválida.")
-            return
-        cols, rows = func(conn)
-        self._fill_tree(self._tree_consultas, cols, rows)
+    def update_ui(self):
+        self.lbl_step.config(text=self.steps[self.current_step])
+        self.btn_prev.config(state="normal" if self.current_step > 0 else "disabled")
+        self.btn_next.config(text="Submeter" if self.current_step == len(self.steps) - 1 else "Próximo >")
+        
+        if self.current_step == 0: self.render_step_1()
+        elif self.current_step == 1: self.render_step_2()
+        elif self.current_step == 2: self.render_step_3()
 
-    # --------- handlers dos botões ---------
-
-    def on_home(self):
-        self.mostrar_pagina("home")
-
-    def on_insercao(self):
-        if not self.controller.db_conn:
-            messagebox.showerror(
-                "Base de dados",
-                "Não existe ligação à base de dados. Configure primeiro a ligação."
+    def submit(self):
+        conn = self.controller.db_conn
+        if not conn: return
+        try:
+            from services.insercao import manual_insert_full_record
+            manual_insert_full_record(
+                conn,
+                self.vars["centro_cod"].get(), self.vars["centro_nome"].get(), self.vars["centro_pais"].get(),
+                self.vars["equip_nome"].get(), self.vars["equip_tipo"].get(),
+                self.vars["astro_nome"].get(),
+                self.vars["soft_nome"].get(),
+                self.vars["ast_pdes"].get(), self.vars["ast_nome"].get(), 
+                self.vars["ast_neo"].get(), self.vars["ast_pha"].get(), self.vars["ast_h"].get(),
+                self.vars["obs_data"].get(), self.vars["obs_modo"].get(), self.vars["obs_notas"].get()
             )
-            return
-        self.controller.show_frame("InsercaoESAFrame")
-
-    def on_alertas(self):
-        self.show_alertas_page()
-
-    def on_monitorizacao(self):
-        self.show_monitorizacao_page()
-
-    def on_consultas(self):
-        self.show_consultas_page()
-
-    def on_user_config(self):
-        self.controller.show_frame("UserConfigFrame")
-
-    def on_creditos(self):
-        self.mostrar_pagina("creditos")
+            messagebox.showinfo("Sucesso", "Dados inseridos com sucesso!")
+            self.current_step = 0
+            self.update_ui()
+        except Exception as e:
+            messagebox.showerror("Erro", str(e))
 
 
-class InsercaoESAFrame(ttk.Frame):
+class InsercaoESAFrame(tk.Frame):
     """
     Frame para importar ficheiros CSV da ESA para a base de dados.
     """
@@ -1283,7 +1292,8 @@ class InsercaoESAFrame(ttk.Frame):
     def __init__(self, parent, controller: "App"):
         super().__init__(parent)
         self.controller = controller
-        self.configure(padding=20)
+        self.configure(bg="#15192b")
+        # self.configure(padding=20)
 
         ttk.Label(
             self,
@@ -1496,7 +1506,7 @@ class InsercaoESAFrame(ttk.Frame):
         )
 
 
-class UserConfigFrame(ttk.Frame):
+class UserConfigFrame(tk.Frame):
     """
     Frame para gestão de utilizadores (alterar password, criar novos).
     """
@@ -1504,7 +1514,8 @@ class UserConfigFrame(ttk.Frame):
     def __init__(self, parent, controller: "App"):
         super().__init__(parent)
         self.controller = controller
-        self.configure(padding=20)
+        self.configure(bg="#15192b")
+        # self.configure(padding=20)
 
         ttk.Label(
             self,
